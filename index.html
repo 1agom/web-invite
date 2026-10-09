@@ -1,0 +1,1904 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>邀请函生成器</title>
+<link rel="icon" href="data:,">
+<style>
+  :root{
+    --bg:#f5f4f1; --panel:#ffffff; --line:#e3e0d8; --ink:#2c2a26; --sub:#8a857a;
+    --accent:#3a6ea5; --danger:#c2543f; --ok:#4a7c59;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.6 "Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+  header{display:flex;align-items:center;gap:10px;padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0 8px 0 0}
+  #tplSelect{width:auto;min-width:130px;border:1px solid var(--line);border-radius:6px;padding:5px 8px;font:inherit;background:#fff}
+  header button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 12px;cursor:pointer;font:inherit}
+  header button:hover{border-color:var(--accent);color:var(--accent)}
+  header button.danger:hover{border-color:var(--danger);color:var(--danger)}
+  #templateOps{display:flex;gap:6px;align-items:center}
+  #templateOps button{font-size:12px;padding:5px 9px}
+  #restoreFile{display:none}
+  #status{color:var(--sub);font-size:12px}
+  .warn{background:#fdf3e0;border:1px solid #ecd9b0;color:#8a6d1f;border-radius:6px;padding:4px 10px;font-size:12px}
+  .hidden{display:none !important}
+  main{display:flex;gap:14px;padding:14px;align-items:flex-start}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+  #mobileTabs{display:none;position:sticky;top:0;z-index:12;background:var(--bg);gap:4px;padding:4px 0}
+  .mobile-panel-hidden{display:none !important}
+  #mobileTabs .active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  #mobileTabs button{min-height:42px;flex:1;padding:6px 4px}
+  #left{width:330px;flex:none;max-height:calc(100vh - 120px);overflow:auto}
+  #center{flex:1;min-width:0;text-align:center}
+  h3{font-size:13px;margin:14px 0 6px;color:var(--sub);font-weight:600;letter-spacing:1px}
+  h3:first-child{margin-top:0}
+  .field{margin-bottom:10px}
+  .field label{display:block;font-size:12px;color:var(--sub);margin-bottom:3px}
+  .field input,.field textarea,textarea,input[type=number],select{width:100%;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font:inherit;background:#fff}
+  .field textarea{height:60px;resize:vertical}
+  .field input:focus,textarea:focus{outline:2px solid #b9cde4;border-color:var(--accent)}
+  button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;font:inherit}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{opacity:.9;color:#fff}
+  button.danger{color:var(--danger)}
+  button.danger:hover{border-color:var(--danger)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .row button{flex:1}
+  #batchInput{height:90px;resize:vertical}
+  #progress{font-size:12px;color:var(--ok);margin-top:8px;min-height:18px}
+  #batchActions{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+  #batchFile{max-width:100%;font-size:12px}
+  #preflight{font-size:12px;margin-top:8px;line-height:1.5}
+  .check-error{color:#b44632}
+  .check-warn{color:#8a6d1f}
+  .check-ok{color:var(--ok)}
+  #zoomBar{display:flex;justify-content:center;align-items:center;gap:6px;margin:0 auto 8px}
+  #zoomBar button{min-width:38px;padding:5px 9px}
+  #zoomValue{min-width:48px;color:var(--sub);font-size:12px;text-align:center}
+  #previewStage{position:relative;display:inline-block;width:min(100%,calc(40.5vh * 9 / 16));aspect-ratio:9/16;vertical-align:top;background:#e8e8e8;box-shadow:0 4px 24px rgba(0,0,0,.12);border-radius:4px;overflow:hidden;transform:scale(var(--preview-zoom,1));transform-origin:top center;transition:transform .12s ease}
+  #previewThumb,#previewStage canvas#main{position:absolute;inset:0;display:block;width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;border-radius:4px;touch-action:none}
+  #previewThumb{opacity:0;transition:opacity .18s ease;z-index:1}
+  #previewStage canvas#main{opacity:0;transition:opacity .22s ease;z-index:2;background:transparent;box-shadow:none}
+  #previewStage.thumb-visible #previewThumb{opacity:1}
+  #previewStage.hd-ready canvas#main{opacity:1}
+  #previewStage.hd-ready #previewThumb{opacity:0}
+  #previewStage.is-loading::after{content:"高清预览加载中…";position:absolute;z-index:3;right:8px;bottom:8px;padding:3px 8px;background:rgba(25,25,25,.62);color:#fff;border-radius:4px;font-size:11px;opacity:0;pointer-events:none;transition:opacity .18s ease}
+  #previewStage.is-loading.hd-ready::after{opacity:1}
+  #calibBar{display:flex;gap:14px;align-items:center;justify-content:center;margin-top:10px;font-size:12px;color:var(--sub);flex-wrap:wrap}
+  #fieldEditor{position:fixed;right:14px;top:64px;width:250px;max-height:calc(100vh - 90px);overflow:auto;z-index:10;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+  #fieldEditor .field input{padding:4px 6px;font-size:12px}
+  #fieldEditor .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  #versions{display:flex;gap:10px;flex-wrap:wrap;padding:4px 0}
+  .vcard{width:150px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px;position:relative}
+  .vcard.sel{border-color:var(--accent);box-shadow:0 0 0 2px #b9cde4}
+  .vcard img{width:100%;border-radius:4px;display:block;background:#eee}
+  .vcard .vname{font-size:12px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vcard .vtag{font-size:10px;color:var(--sub)}
+  .vcard .vops{display:flex;gap:4px;margin-top:4px;font-size:11px;align-items:center}
+  .vcard .vops button{padding:2px 8px;font-size:11px}
+  #wallHead{display:flex;align-items:center;gap:10px;margin:0 0 8px}
+  #wallHead h3{margin:0}
+  #wallHead .cnt{color:var(--sub);font-size:12px}
+  footer{padding:6px 18px;color:var(--sub);font-size:11px}
+  /* 弹窗 */
+  .overlay{position:fixed;inset:0;background:rgba(30,28,24,.45);z-index:50;display:flex;align-items:center;justify-content:center}
+  .modal{background:#fff;border-radius:12px;padding:20px 22px;width:680px;max-width:94vw;max-height:88vh;overflow:auto;box-shadow:0 12px 48px rgba(0,0,0,.3)}
+  .modal h2{font-size:16px;margin:0 0 12px}
+  .modal .closeX{float:right;border:none;background:none;font-size:18px;color:var(--sub);cursor:pointer}
+  .layerinfo{font-size:11px;color:var(--sub);margin-top:2px}
+  .badge{background:#e6efe6;color:#4a7c59;border-radius:4px;padding:1px 6px;font-size:11px;white-space:nowrap}
+  .badge.warnb{background:#fdf3e0;color:#8a6d1f}
+  .match-row{display:grid;grid-template-columns:110px 1fr 170px 52px 28px;gap:6px;align-items:center;margin-bottom:8px}
+  .match-row input,.match-row select{border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:inherit;background:#fff;width:100%}
+  .uprow{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+  .uprow label{min-width:88px;font-size:13px;color:var(--sub)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{border:1px solid var(--line);border-radius:20px;padding:4px 16px;cursor:pointer;font-size:13px;background:#fff;user-select:none}
+  .chip:hover{border-color:var(--accent)}
+  .chip.sel{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tag{background:#e6efe6;color:#4a7c59;border-radius:4px;padding:1px 6px;font-size:11px;white-space:nowrap}
+  .warnbox{background:#fdf3e0;border:1px solid #ecd9b0;color:#8a6d1f;border-radius:6px;padding:6px 10px;font-size:12px;margin:8px 0;white-space:pre-wrap}
+  .mapping-grid{display:grid;grid-template-columns:minmax(90px,1fr) minmax(120px,1.4fr);gap:7px;align-items:center;margin:12px 0}
+  .mapping-grid label{font-size:13px;color:var(--ink)}
+  .table-scroll{max-width:100%;overflow:auto;border:1px solid var(--line);border-radius:6px;margin:10px 0}
+  .table-scroll table{border-collapse:collapse;min-width:100%;font-size:12px}
+  .table-scroll th,.table-scroll td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  .table-scroll th{background:#f1efea;position:sticky;top:0}
+  .row-issue{background:#fff7e8}
+  .issue-list{margin:6px 0 0;padding-left:18px}
+  .preflight-panel{border:1px solid var(--line);border-radius:6px;padding:10px;margin:10px 0;background:#fff}
+  .preflight-panel h4{margin:0 0 6px;font-size:13px}
+  .preflight-panel ul{margin:0;padding-left:18px}
+  .preflight-panel li{margin:3px 0}
+  .row-badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+  .status-badge{border-radius:4px;padding:2px 6px;font-size:11px}
+  .status-badge.err{background:#f7e4df;color:#a13c2b}
+  .status-badge.warn{background:#fdf3e0;color:#8a6d1f}
+  .status-badge.ok{background:#e6efe6;color:#4a7c59}
+  .preflight-panel{border:1px solid var(--line);border-radius:6px;padding:10px;margin:10px 0;background:#fff}
+  .preflight-panel h4{margin:0 0 6px;font-size:13px}
+  .preflight-panel ul{margin:0;padding-left:18px}
+  .preflight-panel li{margin:3px 0}
+  .row-badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+  .status-badge{border-radius:4px;padding:2px 6px;font-size:11px}
+  .status-badge.err{background:#f7e4df;color:#a13c2b}
+  .status-badge.warn{background:#fdf3e0;color:#8a6d1f}
+  .status-badge.ok{background:#e6efe6;color:#4a7c59}
+
+  @media (max-width: 700px){
+    body{font-size:16px;padding-bottom:env(safe-area-inset-bottom)}
+    header{position:relative;top:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px 12px}
+    header h1{grid-column:1/-1;font-size:17px;margin:0;align-self:center}
+    #tplSelect{grid-column:1/-1;width:100%;min-width:0;min-height:44px;font-size:16px;padding:8px 10px}
+    header button{width:100%;min-height:42px;padding:8px 10px;font-size:14px}
+    #status,#fontWarn,#bgWarn{grid-column:1/-1}
+    main{flex-direction:column;align-items:stretch;gap:8px;padding:8px}
+    #mobileTabs{display:flex;position:relative;top:auto;z-index:2;order:-2;gap:4px;background:var(--bg);padding:4px 0}
+    #center{order:-1;width:100%;min-width:0}
+    #left{order:0;width:100%;max-height:none;overflow:visible;padding:12px}
+    #versionPanel{margin:0 8px 10px !important}
+    .mobile-panel-hidden{display:none !important}
+    #zoomBar{margin:2px auto 8px}
+    #previewStage{width:min(100%,calc(58vh * 9 / 16));max-width:100%;max-height:none;aspect-ratio:9/16}
+    #previewThumb,#previewStage canvas#main{width:100%;height:100%;object-fit:fill}
+    .panel{border-radius:8px}
+    .field{margin-bottom:12px}
+    .field input,.field textarea,textarea,input[type=number],select{font-size:16px;min-height:44px}
+    .field textarea,#batchInput{min-height:92px}
+    button{min-height:42px}
+    .row{gap:8px}
+    .row button{min-height:44px}
+    .chips{gap:8px}
+    .chip{min-height:40px;display:inline-flex;align-items:center;padding:6px 16px;font-size:15px}
+    #calibBar{gap:10px;padding:0 6px;font-size:12px}
+    #calibBar label{min-height:36px;display:inline-flex;align-items:center;gap:5px}
+    #calibHint{flex-basis:100%;line-height:1.4}
+    #previewStage canvas#main{touch-action:pan-y}
+    #previewStage.calibrating canvas#main{touch-action:none}
+    #fieldEditor{left:8px;right:8px;top:auto;bottom:calc(8px + env(safe-area-inset-bottom));width:auto;max-height:62svh;padding:14px;border-radius:10px}
+    #fieldEditor .field input,#fieldEditor select{font-size:16px;min-height:42px}
+    #fieldEditor .grid2{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    #versions{gap:8px}
+    .vcard{width:calc(50% - 4px);max-width:180px}
+    #wallHead{flex-wrap:wrap;gap:8px}
+    #wallHead h3{margin-right:4px}
+    #wallHead>span[style*="flex:1"]{display:none}
+    #wallHead button{flex:1 1 calc(33.333% - 8px);padding:7px 6px;font-size:13px}
+    .modal{width:100%;max-width:none;max-height:92svh;padding:16px 14px;border-radius:12px 12px 0 0;align-self:flex-end}
+    .save-images-modal{max-height:92svh}
+    .save-images-list{grid-template-columns:1fr;max-height:72svh}
+    .save-image-card img{max-height:60svh}
+    .overlay{align-items:flex-end;padding-top:env(safe-area-inset-top)}
+    .modal h2{font-size:17px;padding-right:28px}
+    .match-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 34px !important;gap:6px}
+    .match-row>input[data-k="label"]{grid-column:1}
+    .match-row>input[data-k="text"]{grid-column:2}
+    .match-row>select[data-k="layer"]{grid-column:1/3;grid-row:2}
+    .match-row>label[data-k="variable"]{grid-column:3;grid-row:1;justify-self:center}
+    .match-row>button[data-k="del"]{grid-column:3;grid-row:2;padding:4px}
+    .match-row>[data-k="info"]{grid-column:1/-1;font-size:11px;overflow-wrap:anywhere}
+    .uprow{align-items:stretch;gap:6px}
+    .uprow label{min-width:100%;font-size:12px}
+    .uprow input[type="file"]{width:100%;font-size:14px}
+    footer{padding:8px 12px;font-size:11px}
+  }
+
+  .save-images-modal{max-height:92vh}
+  .save-images-hint{font-size:13px;color:var(--sub);margin:0 0 12px}
+  .save-images-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;max-height:72vh;overflow:auto;overscroll-behavior:contain}
+  .save-image-card{min-width:0;border:1px solid var(--line);border-radius:6px;padding:8px;background:#faf9f6}
+  .save-image-name{font-size:12px;overflow-wrap:anywhere;margin-bottom:6px;color:var(--sub)}
+  .save-image-card img{display:block;width:100%;height:auto;max-height:68vh;object-fit:contain;background:#eee;user-select:auto;-webkit-touch-callout:default;touch-action:pan-y}
+
+  @media (max-width: 380px){
+    header{grid-template-columns:repeat(2,minmax(0,1fr))}
+    header h1,#tplSelect,#status,#fontWarn,#bgWarn{grid-column:1/-1}
+    #previewStage{width:min(100%,calc(52vh * 9 / 16))}
+    .match-row{grid-template-columns:minmax(0,1fr) 32px !important}
+    .match-row>input[data-k="label"]{grid-column:1}
+    .match-row>input[data-k="text"]{grid-column:1;grid-row:auto}
+    .match-row>select[data-k="layer"]{grid-column:1;grid-row:auto}
+    .match-row>label[data-k="variable"]{grid-column:2;grid-row:1}
+    .match-row>button[data-k="del"]{grid-column:2;grid-row:2}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>邀请函生成器</h1>
+  <select id="tplSelect"><option value="">— 选择模板 —</option></select>
+  <button id="btnUpload">上传模板</button>
+  <button id="btnCopyTpl" disabled>复制模板</button>
+  <button id="btnMatch" disabled>字段匹配</button>
+  <button id="btnDelTpl" class="danger" disabled>删除模板</button>
+  <div id="templateOps">
+    <button id="backupTpl" disabled>备份模板 ZIP</button>
+    <button id="restoreTpl">恢复模板 ZIP</button>
+    <input id="restoreFile" type="file" accept=".zip">
+  </div>
+  <span id="status"></span>
+  <span class="warn hidden" id="fontWarn"></span>
+  <span class="warn hidden" id="bgWarn"></span>
+</header>
+
+<main>
+  <nav id="mobileTabs" aria-label="工作区" class="hidden">
+    <button class="mobile-tab active" data-panel="make">制作</button>
+    <button class="mobile-tab" data-panel="list">名单</button>
+    <button class="mobile-tab" data-panel="versions">版本</button>
+  </nav>
+  <!-- 左：表单 + 导出 + 批量 -->
+  <section class="panel" id="left">
+    <div id="formArea">
+      <label style="font-size:13px;font-weight:600;margin:12px 0 4px;display:block">文字内容</label>
+      <label class="global-underline-toggle"><input id="keepAllUnderlines" type="checkbox"> <span>保留全部下划线</span></label>
+      <div id="form"></div>
+      <div class="row"><button id="saveVersion">＋ 存为版本</button><button id="resetForm">重置</button></div>
+      <div class="row"><button class="primary" id="exportCurrent">导出当前 PNG</button></div>
+      <label style="font-size:13px;font-weight:600;margin:14px 0 4px;display:block">导出宽度</label>
+      <select id="exportWidth"></select>
+      <input type="number" id="customWidth" class="hidden" placeholder="自定义宽度 px" style="margin-top:6px">
+      <div id="preflight"></div>
+    </div>
+    <div id="batchArea">
+      <label style="font-size:13px;font-weight:600;margin:12px 0 4px;display:block">粘贴名单</label>
+      <textarea id="batchInput" placeholder="每行一条，例：&#10;张三&#10;多字段用 / 分隔"></textarea>
+      <div id="batchActions">
+        <button id="batchGen">生成版本墙</button>
+        <button id="importListBtn">导入 CSV / Excel</button>
+        <input id="batchFile" type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" class="hidden">
+      </div>
+      <div id="progress"></div>
+    </div>
+  </section>
+
+  <!-- 中：画布 -->
+  <section id="center">
+    <div id="zoomBar" aria-label="预览缩放">
+      <button id="zoomOut" type="button" aria-label="缩小预览" title="缩小">−</button>
+      <button id="zoomFit" type="button" aria-label="适合屏幕" title="适合屏幕">适合</button>
+      <span id="zoomValue">100%</span>
+      <button id="zoomIn" type="button" aria-label="放大预览" title="放大">＋</button>
+      <button id="zoomReset" type="button" aria-label="重置缩放" title="重置">重置</button>
+    </div>
+    <div id="previewStage">
+      <img id="previewThumb" alt="模板预览">
+      <canvas id="main" width="800" height="600"></canvas>
+    </div>
+    <div id="calibBar">
+      <label><input type="checkbox" id="calibToggle"> 校准模式</label>
+      <label>参考图透明度 <input type="range" id="calibAlpha" min="0" max="100" value="50" style="width:110px"></label>
+      <button id="saveConfig" class="hidden">保存配置到服务端</button>
+      <span id="calibHint">校准模式：拖动文字调位置，方向键微调（Shift=10px），点选字段在右侧改属性</span>
+    </div>
+  </section>
+
+  <!-- 右：字段属性编辑（校准模式） -->
+  <aside class="panel hidden" id="fieldEditor">
+    <h3>字段属性</h3>
+    <div class="field"><label>名称（表单标签）</label><input id="fe-label"></div>
+    <div class="grid2">
+      <div class="field"><label>X</label><input id="fe-x" type="number"></div>
+      <div class="field"><label>Y</label><input id="fe-y" type="number"></div>
+      <div class="field"><label>字号</label><input id="fe-fontSize" type="number"></div>
+      <div class="field"><label>字距 px</label><input id="fe-letterSpacing" type="number"></div>
+      <div class="field"><label>行高倍数</label><input id="fe-lineHeight" type="number" step="0.05"></div>
+      <div class="field"><label>颜色</label><input id="fe-color" type="color" style="height:30px;padding:2px"></div>
+      <div class="field"><label>对齐</label><select id="fe-align"><option value="center">居中</option><option value="left">左</option><option value="right">右</option></select></div>
+      <div class="field"><label>基线</label><select id="fe-baseline"><option value="middle">middle</option><option value="alphabetic">alphabetic</option><option value="top">top</option></select></div>
+    </div>
+    <div class="field"><label>最大宽度 px（空=不限，配合自动缩字）</label><input id="fe-maxWidth" type="number"></div>
+    <div class="field" id="fe-blankModeBox" style="display:none"><label>下划线渲染方式</label>
+      <select id="fe-blankMode">
+        <option value="overlay">叠加在下划线上（保留下划线）</option>
+        <option value="split">均分替换（名字两侧留线）</option>
+        <option value="replace">直接替换下划线</option>
+      </select></div>
+    <div class="field"><label><input id="fe-autoShrink" type="checkbox" style="width:auto"> 超宽自动缩字号</label></div>
+    <div class="row">
+      <button id="fe-add">＋ 新增字段</button>
+      <button class="danger" id="fe-del">删除字段</button>
+    </div>
+  </aside>
+</main>
+
+<!-- 版本墙 -->
+<section class="panel" id="versionPanel" style="margin:0 14px 14px">
+  <div id="wallHead">
+    <h3>版本墙</h3>
+    <span class="cnt" id="verCount"></span>
+    <span style="flex:1"></span>
+    <button id="exportSelected">导出勾选</button>
+    <button id="exportAll">导出全部</button>
+    <button class="danger" id="clearVersions">清空</button>
+  </div>
+  <div id="versions"></div>
+</section>
+
+<footer>换字即预览 · 导出后点文件名直接下载 · 支持批量打包</footer>
+
+<!-- 上传模板弹窗 -->
+<div class="overlay hidden" id="uploadOverlay">
+  <div class="modal">
+    <button class="closeX" data-close="uploadOverlay">✕</button>
+    <h2>上传 PSD 模板</h2>
+    <div class="uprow"><label>模板名称</label><input id="upName" placeholder="如：终审评委 / 大众评委 / 参赛选手" style="flex:1"></div>
+    <div class="uprow"><label>PSD 文件</label><input type="file" id="upPsd" accept=".psd" style="flex:1"></div>
+    <div class="uprow"><label>字体文件</label><input type="file" id="upFonts" accept=".ttf,.otf,.woff,.woff2,.ttc" multiple style="flex:1">
+      <span class="layerinfo">可多选，已上传过可跳过</span></div>
+    <div class="layerinfo">提示：把需要自动填名字的文字图层内容改成「测试姓名」，上传后自动匹配字体/字号/位置；匹配不上的手动指定即可。</div>
+    <div id="upWarn" class="warnbox hidden"></div>
+    <div class="row" style="justify-content:flex-end">
+      <button class="primary" id="upGo">上传并解析</button>
+    </div>
+  </div>
+</div>
+
+<!-- 字段匹配弹窗 -->
+<div class="overlay hidden" id="matchOverlay">
+  <div class="modal">
+    <button class="closeX" data-close="matchOverlay">✕</button>
+    <h2>字段匹配 <span id="matchTplName" style="color:var(--sub);font-size:13px"></span></h2>
+    <div id="matchWarn"></div>
+    <h3>模板字体（渲染全部文字用）</h3>
+    <div class="uprow">
+      <select id="matchFont" style="flex:1"></select>
+      <label style="min-width:auto" class="layerinfo">新字体：
+        <input type="file" id="matchFontUp" accept=".ttf,.otf,.woff,.woff2,.ttc" multiple></label>
+    </div>
+    <h3>文字字段 ← PSD 图层绑定</h3>
+    <div id="matchRows"></div>
+    <div class="row">
+      <button id="matchAdd">＋ 新增字段</button>
+      <span style="flex:1"></span>
+      <button class="primary" id="matchSave">保存并使用</button>
+    </div>
+  </div>
+</div>
+
+<!-- 名单导入 -->
+<div class="overlay hidden" id="importOverlay">
+  <div class="modal">
+    <button class="closeX" data-close="importOverlay">✕</button>
+    <h2>名单导入 <span id="importFileName" class="layerinfo"></span></h2>
+    <div class="uprow"><label>工作表</label><select id="importSheet" style="flex:1"></select></div>
+    <div class="layerinfo">首行作为列标题；设置每个邀请函字段对应的名单列。名单仅在此浏览器中解析，不会上传。</div>
+    <div id="importMapping" class="mapping-grid"></div>
+    <div id="importSummary" class="layerinfo"></div>
+    <div id="importPreview" class="table-scroll"></div>
+    <div id="importErrors" class="warnbox hidden"></div>
+    <div class="row"><button data-close="importOverlay">取消</button><span style="flex:1"></span><button class="primary" id="importConfirm">导入有效行</button></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="saveImagesOverlay">
+  <div class="modal save-images-modal">
+    <button class="closeX" data-close="saveImagesOverlay">✕</button>
+    <h2>PNG 已生成</h2>
+    <p class="save-images-hint">在微信中长按图片，选择「保存图片」即可存入手机。</p>
+    <div id="saveImagesList" class="save-images-list"></div>
+  </div>
+</div>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const LS_KEY = "web-invite-versions-v2";
+const LS_LAST_TPL = "web-invite-last-tpl";
+
+let templates = [];
+let tplId = null;
+let config = null;
+let bgImage = null, refImage = null;
+let loadedFonts = new Set();
+let fieldValues = {};
+let keepAllUnderlines = false;
+let versions = [];
+let selectedFieldId = null;
+let editorFieldId = null;
+let calibMode = false;
+let dragState = null;
+let matchLayers = [];   // 匹配弹窗用的图层列表
+let assetsReady = false;
+
+const assetBase = (tid = tplId) => (STATIC_MODE ? "assets/" : "/assets/templates/") + tid;
+function fontUrl(file) { return (STATIC_MODE ? "fonts/" : "/assets/fonts/") + file; }
+
+const imageCache = new Map();
+const thumbnailImages = new Map();
+const fontCache = new Map();
+let selectionSeq = 0;
+let previewVersion = "2";
+let workbookRows = [];
+let workbookHeaders = [];
+let workbookSheets = [];
+let workbookFileName = "";
+let workbookMapping = {};
+let workbookParsedRows = [];
+let pagePasswordSession = "";
+let saveImageUrls = [];
+let wxMode = /MicroMessenger/i.test(navigator.userAgent);
+function assetUrl(tid, name) {
+  const meta = templates.find(t => t.id === tid);
+  const version = (meta && meta.assetVersion) || previewVersion;
+  return assetBase(tid) + "/" + name + "?v=" + encodeURIComponent(version);
+}
+function preloadThumbnail(tid) {
+  const key = tid + ":thumbnail.jpg";
+  const promise = loadImage(assetUrl(tid, "thumbnail.jpg"), key);
+  promise.then(img => { if (img) thumbnailImages.set(tid, img); });
+  return promise;
+}
+function showTemplateThumb(tid) {
+  const stage = $("previewStage");
+  const thumb = $("previewThumb");
+  stage.classList.add("thumb-visible", "is-loading");
+  stage.classList.remove("hd-ready");
+  const cached = thumbnailImages.get(tid);
+  if (cached && cached.complete && cached.naturalWidth) {
+    stage.style.aspectRatio = cached.naturalWidth + " / " + cached.naturalHeight;
+    thumb.src = cached.src;
+    return;
+  }
+  preloadThumbnail(tid).then(img => {
+    if (img && tplId === tid) {
+      stage.style.aspectRatio = img.naturalWidth + " / " + img.naturalHeight;
+      thumb.src = img.src;
+      stage.classList.add("thumb-visible");
+    } else if (!img && tplId === tid) {
+      stage.classList.remove("thumb-visible");
+    }
+  });
+}
+function promoteHdPreview(tid) {
+  if (tid !== tplId) return;
+  const stage = $("previewStage");
+  stage.classList.remove("thumb-visible");
+  stage.classList.add("hd-ready");
+  setTimeout(() => { if (tplId === tid) stage.classList.remove("is-loading"); }, 260);
+}
+
+/* ---------- 基础 ---------- */
+let statusTimer = null;
+function toast(msg, isErr = false) {
+  const el = $("status");
+  el.textContent = msg;
+  el.style.color = isErr ? "#c2543f" : "";
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => { el.textContent = ""; }, 4500);
+}
+function showWarn(id, msg) { const el = $(id); el.textContent = "⚠ " + msg; el.classList.remove("hidden"); }
+function hideWarn(id) { $(id).classList.add("hidden"); }
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function getField(id) { return (config.fields || []).find(f => f.id === id); }
+/* 点选字段：按当前选中值解析出实际要画的选项（合并选项样式） */
+function resolveChoice(f, values) {
+  const sel = String(values[f.id] ?? f.text ?? "");
+  if (!sel) return null;
+  const opt = (f.options || []).find(o => o.text === sel);
+  if (!opt) return null;
+  return Object.assign({}, f, opt, { text: opt.text });
+}
+/* 模板句：文字里的 {姓名} {团队/创作人} 等引用其他字段的当前值，渲染时替换 */
+function expandRefs(text, values) {
+  if (!text || !text.includes("{")) return text;
+  return text.replace(/\{([^{}]{1,30})\}/g, (m, key) => {
+    const k = key.trim();
+    const f = (config.fields || []).find(x => x.id === k || (x.label || "") === k);
+    if (!f) return m;  // 未知引用原样保留
+    return String(values[f.id] ?? f.text ?? "");
+  });
+}
+/* 校准编辑的对象：普通字段=字段本身；点选字段=当前选中的选项 */
+function editTarget(f) {
+  if (!f || f.type !== "choice") return f;
+  const sel = String(fieldValues[f.id] ?? f.text ?? "");
+  return (f.options || []).find(o => o.text === sel) || (f.options || [])[0] || f;
+}
+function openOverlay(id) { $(id).classList.remove("hidden"); }
+function closeOverlay(id) { $(id).classList.add("hidden"); }
+
+/* ---------- 访客标识 / 管理钥匙 / 下载 ---------- */
+function visitorId() {
+  let v = localStorage.getItem("web-invite-visitor");
+  if (!v) {
+    v = (crypto.randomUUID ? crypto.randomUUID() : "v" + Date.now() + Math.random().toString(36).slice(2));
+    localStorage.setItem("web-invite-visitor", v);
+  }
+  return v;
+}
+async function apiFetch(url, opts = {}) {
+  // 服务端设了管理钥匙时（公开部署模式），写操作 401 会引导输入钥匙并重试；本机模式无感知
+  opts.headers = Object.assign({}, opts.headers);
+  const k = localStorage.getItem("web-invite-admin-key");
+  if (k) opts.headers["X-Admin-Key"] = k;
+  let r = await fetch(url, opts);
+  if (r.status === 401) {
+    const key = prompt("此操作需要管理钥匙：");
+    if (key == null) throw new Error("需要管理钥匙");
+    localStorage.setItem("web-invite-admin-key", key);
+    opts.headers["X-Admin-Key"] = key;
+    r = await fetch(url, opts);
+  }
+  return r;
+}
+/* 页面密码：危险操作（字段匹配/删除模板）点击时校验，密码存服务端 */
+async function askPagePassword(action) {
+  const pw = prompt(action + "需验证密码：");
+  if (pw == null) return false;
+  try {
+    const r = await fetch("/api/verify-password", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: pw })
+    });
+    if (r.ok) { pagePasswordSession = pw; return true; }
+    pagePasswordSession = "";
+    toast("密码错误", true);
+  } catch (e) { toast("验证失败：" + e.message, true); }
+  return false;
+}
+async function adminFetch(url, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers);
+  if (pagePasswordSession) opts.headers["X-Page-Password"] = pagePasswordSession;
+  let r = await apiFetch(url, opts);
+  if (r.status === 401 && pagePasswordSession) {
+    pagePasswordSession = "";
+    toast("页面密码已失效，请重新验证", true);
+  }
+  return r;
+}
+async function downloadZip(names) {
+  if (!names.length) return;
+  try {
+    const r = await fetch("/api/export-zip", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ names })
+    });
+    if (!r.ok) throw new Error("状态 " + r.status);
+    const blob = await r.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "邀请函导出.zip";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  } catch (e) { toast("打包下载失败：" + e.message, true); }
+}
+async function backupTemplates() {
+  if (STATIC_MODE) return;
+  if (!(await askPagePassword("模板备份"))) return;
+  const options=templates.map((t,i)=>`${i+1}. ${t.name}`).join("\n");
+  const answer=prompt("输入要备份的模板编号（逗号分隔）；留空备份全部：\n"+options,"");
+  if (answer == null) return;
+  const names=answer.trim()?answer.split(",").map(v=>templates[Number(v.trim())-1]?.name).filter(Boolean):[];
+  if(answer.trim() && !names.length){toast("没有匹配到模板编号",true);return;}
+  try {
+    const r = await adminFetch("/api/templates/backup", {
+      method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({names})
+    });
+    if (!r.ok) throw new Error((await r.text()).slice(0,200));
+    const blob=await r.blob(), a=document.createElement("a");
+    a.href=URL.createObjectURL(blob); a.download="web-invite-templates-backup.zip"; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    toast("模板备份已下载");
+  } catch(e) { toast("备份失败："+e.message,true); }
+}
+async function restoreTemplates(file) {
+  if (!file || STATIC_MODE) return;
+  if (!(await askPagePassword("恢复模板"))) { $("restoreFile").value=""; return; }
+  const fd=new FormData(); fd.append("file",file);
+  try {
+    const r=await adminFetch("/api/templates/restore",{method:"POST",body:fd});
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.detail || "状态 "+r.status);
+    await loadTemplates();
+    if(data.templates?.[0]) await selectTemplate(data.templates[0].id);
+    toast(`已恢复 ${data.templates?.length || 0} 个模板`);
+  } catch(e) { toast("恢复失败："+e.message,true); }
+  finally { $("restoreFile").value=""; }
+}
+
+let STATIC_MODE = false;   // 云端静态版：根目录存在 templates.json 即为静态模式
+let siteTemplates = [];
+
+/* ---------- 启动 ---------- */
+(async function init() {
+  bindEvents();
+  await detectStaticMode();
+  await loadTemplates();
+  const last = localStorage.getItem(LS_LAST_TPL);
+  if (templates.length) {
+    await selectTemplate(templates.some(t => t.id === last) ? last : templates[0].id);
+  } else {
+    renderEmptyCanvas();
+    if (!STATIC_MODE) openOverlay("uploadOverlay");
+  }
+})();
+
+async function detectStaticMode() {
+  try {
+    const r = await fetch("templates.json", { cache: "no-store" });
+    if (r.ok) { STATIC_MODE = true; siteTemplates = await r.json(); }
+  } catch (e) { }
+  if (STATIC_MODE) {
+    ["btnUpload", "btnCopyTpl", "btnMatch", "btnDelTpl", "templateOps"].forEach(id => $(id).classList.add("hidden"));
+    $("saveConfig").textContent = "保存配置（存本浏览器）";
+    document.querySelector("footer").textContent = "云端静态版 · 模板由管理员发布 · 换字与导出全在浏览器完成，PNG 直接下载";
+  }
+}
+
+async function loadTemplates() {
+  if (STATIC_MODE) {
+    templates = siteTemplates.map(t => ({ id: t.id, name: t.name }));
+  } else {
+    try { templates = await (await fetch("/api/templates", { cache: "no-store" })).json(); }
+    catch (e) { templates = []; toast("模板列表加载失败：" + e.message, true); }
+  }
+  const sel = $("tplSelect");
+  sel.innerHTML = '<option value="">— 选择模板 —</option>' +
+    templates.map(t => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join("");
+  // 下载很轻的模板缩略图，切换到未选中的模板也能立即预览
+  templates.forEach(t => preloadThumbnail(t.id));
+  const has = !!tplId;
+  $("btnMatch").disabled = !has;
+  $("btnDelTpl").disabled = !has;
+  $("btnCopyTpl").disabled = !has;
+  $("backupTpl").disabled = !has;
+}
+
+async function selectTemplate(tid) {
+  const seq = ++selectionSeq;
+  tplId = tid;
+  localStorage.setItem(LS_LAST_TPL, tid);
+  $("tplSelect").value = tid;
+  $("btnMatch").disabled = false;
+  $("btnDelTpl").disabled = false;
+  $("btnCopyTpl").disabled = false;
+  hideWarn("fontWarn"); hideWarn("bgWarn");
+  showTemplateThumb(tid);
+  let nextConfig;
+  if (STATIC_MODE) {
+    const st = siteTemplates.find(t => t.id === tid);
+    if (!st) { toast("模板数据缺失：" + tid, true); return; }
+    nextConfig = JSON.parse(JSON.stringify(st.config));
+    const saved = localStorage.getItem("web-invite-config-" + tid);
+    if (saved) { try { nextConfig = JSON.parse(saved); } catch (e) { } }
+  } else {
+    try {
+      const r = await fetch(`/api/templates/${tid}/config`, { cache: "no-cache" });
+      nextConfig = await r.json();
+    } catch (e) { if (seq === selectionSeq) toast("模板配置加载失败：" + e.message, true); return; }
+  }
+  if (seq !== selectionSeq) return;
+  config = nextConfig;
+  assetsReady = false;
+  $("exportCurrent").disabled = true;
+  config.fields = config.fields || [];
+  fieldValues = {};
+  config.fields.forEach(f => { fieldValues[f.id] = f.text ?? ""; });
+  buildForm(); buildWidthOptions(); syncFormInputs();
+  restoreVersions();
+  closeFieldEditor(); selectedFieldId = null; setCalib(false);
+  $("calibToggle").checked = false;
+  render(); // 先用当前字体画缩略图/旧缓存背景上的新字段
+
+  const fontPromise = loadFonts(config, seq);
+  const bgPromise = loadBackground(tid, seq);
+  const [, bg] = await Promise.all([fontPromise, bgPromise]);
+  if (seq !== selectionSeq) return;
+  if (!bg) return;
+  assetsReady = true;
+  $("exportCurrent").disabled = false;
+  render();
+  promoteHdPreview(tid);
+  // 校准图不阻塞正常预览，进入校准模式时按需读取
+  refImage = null;
+}
+
+function renderEmptyCanvas() {
+  const canvas = $("main");
+  canvas.width = 900; canvas.height = 600;
+  const g = canvas.getContext("2d");
+  g.fillStyle = "#efece5"; g.fillRect(0, 0, 900, 600);
+  g.fillStyle = "#a8a091"; g.textAlign = "center";
+  g.font = "34px sans-serif"; g.fillText("尚无模板", 450, 280);
+  g.font = "20px sans-serif"; g.fillText("点右上角「上传模板」导入 PSD（文字图层写「测试姓名」可自动匹配）", 450, 330);
+}
+
+/* ---------- 字体 ---------- */
+async function loadFonts(cfg, seq) {
+  const fonts = cfg.fonts || [];
+  const results = await Promise.all(fonts.map(async f => {
+    const cacheKey = f.family + "|" + f.file;
+    if (fontCache.has(cacheKey)) return { family: f.family, ok: true };
+    try {
+      const opts = {};
+      if (f.weight) opts.weight = f.weight;
+      const face = new FontFace(f.family, "url(" + fontUrl(f.file) + ")", opts);
+      await face.load();
+      document.fonts.add(face);
+      fontCache.set(cacheKey, face);
+      return { family: f.family, ok: true };
+    } catch (e) {
+      console.warn("字体加载失败", f.file, e);
+      return { family: f.family, ok: false };
+    }
+  }));
+  if (seq !== selectionSeq) return;
+  loadedFonts = new Set(results.filter(r => r.ok).map(r => r.family));
+  const missing = fonts.filter(f => !loadedFonts.has(f.family));
+  if (missing.length) showWarn("fontWarn", "字体未加载：" + missing.map(f => f.file).join("、") + "，当前用系统字体渲染");
+  else hideWarn("fontWarn");
+  render();
+}
+function familyOf(field) {
+  const fam = field.family || (config.fonts && config.fonts[0] && config.fonts[0].family);
+  return loadedFonts.has(fam) ? fam : "sans-serif";
+}
+
+/* ---------- 图片 ---------- */
+function loadImage(src, key) {
+  if (key && imageCache.has(key)) return imageCache.get(key);
+  const promise = new Promise(res => {
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => res(img);
+    img.onerror = () => res(null);
+    img.src = src;
+  });
+  if (key) imageCache.set(key, promise);
+  return promise;
+}
+async function loadBackground(tid, seq) {
+  const bg = await loadImage(assetUrl(tid, "background.png"), tid + ":background.png");
+  if (seq !== selectionSeq) return;
+  if (bg) { bgImage = bg; hideWarn("bgWarn"); }
+  else {
+    showWarn("bgWarn", "模板缺 background.png（解析时合成失败），当前为占位背景；可手动导出替换");
+    bgImage = null;
+    render();
+  }
+  return bg;
+}
+async function loadReference(tid = tplId) {
+  const img = await loadImage(assetUrl(tid, "reference.png"), tid + ":reference.png");
+  if (tid === tplId) { refImage = img; if (calibMode) render(); }
+  return img;
+}
+function makeFallbackCanvas() {
+  const c = document.createElement("canvas");
+  c.width = 1240; c.height = 1754;
+  const g = c.getContext("2d");
+  const grad = g.createLinearGradient(0, 0, 0, 1754);
+  grad.addColorStop(0, "#f8f3ea"); grad.addColorStop(1, "#e9decb");
+  g.fillStyle = grad; g.fillRect(0, 0, 1240, 1754);
+  g.strokeStyle = "#b9ab8e"; g.lineWidth = 3; g.strokeRect(60, 60, 1120, 1634);
+  g.textAlign = "center"; g.fillStyle = "#a8977c";
+  g.font = "40px sans-serif"; g.fillText("占位背景", 620, 700);
+  g.font = "24px sans-serif";
+  g.fillText("模板缺 background.png：请在 PS 里隐藏全部文字图层后导出替换", 620, 760);
+  return c;
+}
+
+/* ---------- 渲染引擎 ---------- */
+function setCtxFont(ctx, field, sizePx) {
+  const w = field.weight ? field.weight + " " : "";
+  ctx.font = w + sizePx + 'px "' + familyOf(field) + '"';
+}
+function drawField(ctx, field, text, scale) {
+  const ls = (field.letterSpacing || 0) * scale;
+  try { ctx.letterSpacing = ls.toFixed(2) + "px"; } catch (e) { }
+  let fs = field.fontSize * scale;
+  const lines = text.split("\n");
+  setCtxFont(ctx, field, fs);
+  if (field.autoShrink && field.maxWidth) {
+    const maxW = field.maxWidth * scale;
+    const widest = () => Math.max(...lines.map(l => ctx.measureText(l).width));
+    let guard = 200;
+    while (widest() > maxW && fs > 8 && guard-- > 0) { fs *= 0.97; setCtxFont(ctx, field, fs); }
+  }
+  ctx.fillStyle = field.color || "#000";
+  ctx.textAlign = field.align || "center";
+  ctx.textBaseline = field.baseline || "middle";
+  const lh = (field.lineHeight || 1.5) * field.fontSize * scale;
+  let x = field.x * scale;
+  const align = field.align || "center";
+  if (align === "center") x += ls / 2;
+  else if (align === "right") x += ls;
+  lines.forEach((ln, i) => { ctx.fillText(ln, x, field.y * scale + i * lh); });
+  try { ctx.letterSpacing = "0px"; } catch (e) { }
+}
+function fieldBox(ctx, field, scale, values) {
+  if (field.type === "choice") {
+    const rf = resolveChoice(field, values);
+    if (!rf) return { left: 0, top: 0, w: 0, h: 0 };
+    field = rf;
+  }
+  let text;
+  if (field.type === "fill") {
+    const name = expandRefs(String(values[field.id] ?? field.text ?? ""), values);
+    const full = (field.prefix || "") + (field.blank || "") + (field.suffix || "");
+    const mode = field.blankMode || "overlay";
+    text = name && mode === "replace" ? (field.prefix || "") + name + (field.suffix || "") : full;
+  } else {
+    text = expandRefs(String(values[field.id] ?? field.text ?? ""), values);
+  }
+  const oldFont = ctx.font;
+  setCtxFont(ctx, field, field.fontSize * scale);
+  const lines = text.split("\n");
+  let w = 0;
+  lines.forEach(l => { w = Math.max(w, ctx.measureText(l).width); });
+  ctx.font = oldFont;
+  const lh = (field.lineHeight || 1.5) * field.fontSize * scale;
+  const align = field.align || "center";
+  const left = align === "center" ? field.x * scale - w / 2 : align === "right" ? field.x * scale - w : field.x * scale;
+  const top = field.y * scale - lh / 2;
+  return { left, top, w, h: lines.length * lh };
+}
+/* ---------- 填空字段（下划线） ---------- */
+function measureWith(ctx, field, text, scale) {
+  const ls = (field.letterSpacing || 0) * scale;
+  try { ctx.letterSpacing = ls.toFixed(2) + "px"; } catch (e) { }
+  setCtxFont(ctx, field, field.fontSize * scale);
+  const w = ctx.measureText(text).width;
+  try { ctx.letterSpacing = "0px"; } catch (e) { }
+  return w;
+}
+function textStartX(field, totalW, scale) {
+  const align = field.align || "center";
+  const ls = (field.letterSpacing || 0) * scale;
+  const x = field.x * scale;
+  if (align === "center") return x - totalW / 2 + ls / 2;
+  if (align === "right") return x - totalW + ls;
+  return x;
+}
+function renderFill(ctx, f, scale, values) {
+  const name = expandRefs(String(values[f.id] ?? f.text ?? ""), values);
+  const full = (f.prefix || "") + (f.blank || "") + (f.suffix || "");
+  const keepLine = !!keepAllUnderlines;
+  if (!name) {
+    drawField(ctx, f, keepLine ? full : (f.prefix || "") + (f.suffix || ""), scale);
+    return;
+  }
+  const mode = f.blankMode || "overlay";
+  if (!keepLine || mode === "replace") {
+    drawField(ctx, f, (f.prefix || "") + name + (f.suffix || ""), scale);
+    return;
+  }
+  if (mode === "split") {
+    const bW = measureWith(ctx, f, f.blank || "_", scale);
+    const nW = measureWith(ctx, f, name, scale);
+    const uW = bW / Math.max(1, (f.blank || "_").length);
+    let s;
+    if (nW >= bW || uW <= 0) s = (f.prefix || "") + name + (f.suffix || "");
+    else {
+      const n = Math.max(0, Math.floor((bW - nW) / uW / 2));
+      const us = "_".repeat(n);
+      s = (f.prefix || "") + us + name + us + (f.suffix || "");
+    }
+    drawField(ctx, f, s, scale);
+    return;
+  }
+  // overlay（默认）：下划线保留，名字写在线上；名字比线长时，线向右延长盖过名字尾部
+  const prefix = f.prefix || "", blank = f.blank || "", suffix = f.suffix || "";
+  const bW = measureWith(ctx, f, blank, scale);
+  const nameW = measureWith(ctx, f, name, scale);
+  let baseText = full;
+  if (nameW > bW && blank) {
+    const uW = bW / Math.max(1, blank.length);
+    const k = Math.max(1, Math.ceil((nameW - bW) / uW) + 2);  // 尾部多延 2 个下划线
+    baseText = prefix + blank + "_".repeat(k) + suffix;
+  }
+  drawField(ctx, f, baseText, scale);
+  const baseW = measureWith(ctx, f, baseText, scale);
+  const start = textStartX(f, baseW, scale);
+  const pW = measureWith(ctx, f, prefix, scale);
+  const blankStart = start + pW;
+  const over = nameW > bW;
+  const nf = Object.assign({}, f, {
+    align: over ? "left" : "center", letterSpacing: 0,
+    x: (over ? blankStart : blankStart + bW / 2) / scale
+  });
+  drawField(ctx, nf, name, scale);
+}
+
+function renderOn(ctx, scale, opts = {}) {
+  const values = opts.values || fieldValues;
+  const W = bgImage.naturalWidth * scale, H = bgImage.naturalHeight * scale;
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(bgImage, 0, 0, W, H);
+  for (const f of config.fields) {
+    if (f.type === "fill") { renderFill(ctx, f, scale, values); continue; }
+    if (f.type === "choice") {
+      const rf = resolveChoice(f, values);
+      if (rf) drawField(ctx, rf, rf.text, scale);
+      continue;
+    }
+    const text = expandRefs(String(values[f.id] ?? f.text ?? ""), values);
+    if (text) drawField(ctx, f, text, scale);
+  }
+  if (opts.calib) {
+    if (refImage) {
+      const a = Number($("calibAlpha").value) / 100;
+      if (a > 0) { ctx.save(); ctx.globalAlpha = a; ctx.drawImage(refImage, 0, 0, W, H); ctx.restore(); }
+    }
+    const sel = opts.selected && getField(opts.selected);
+    if (sel) {
+      const b = fieldBox(ctx, sel, scale, values);
+      ctx.save();
+      ctx.strokeStyle = "#e14d4d"; ctx.lineWidth = 2 * scale; ctx.setLineDash([8 * scale, 6 * scale]);
+      ctx.strokeRect(b.left - 8 * scale, b.top - 8 * scale, b.w + 16 * scale, b.h + 16 * scale);
+      ctx.restore();
+    }
+  }
+}
+function render() {
+  if (!config || !bgImage) return;
+  const canvas = $("main");
+  canvas.width = bgImage.naturalWidth;
+  canvas.height = bgImage.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  renderOn(ctx, 1, { calib: calibMode, selected: selectedFieldId });
+}
+
+/* ---------- 表单 ---------- */
+function buildForm() {
+  const form = $("form");
+  form.innerHTML = "";
+  config.fields.forEach(f => {
+    const wrap = document.createElement("div");
+    wrap.className = "field";
+    const label = document.createElement("label");
+    label.textContent = (f.variable ? "" : "固定·") + (f.label || f.id);
+    wrap.appendChild(label);
+    if (f.type === "choice") {
+      const chips = document.createElement("div");
+      chips.className = "chips";
+      chips.id = "fi-" + f.id;
+      const cur = String(fieldValues[f.id] ?? f.text ?? "");
+      (f.options || []).forEach(o => {
+        const chip = document.createElement("span");
+        chip.className = "chip" + (o.text === cur ? " sel" : "");
+        chip.textContent = o.text;
+        chip.addEventListener("click", () => {
+          fieldValues[f.id] = (fieldValues[f.id] === o.text) ? "" : o.text;
+          syncFormInputs(); render();
+        });
+        chips.appendChild(chip);
+      });
+      wrap.appendChild(chips);
+    } else {
+      const input = document.createElement(f.multiLine ? "textarea" : "input");
+      input.id = "fi-" + f.id;
+      if (f.type === "fill") input.placeholder = "只填下划线部分";
+      input.value = fieldValues[f.id] ?? f.text ?? "";
+      input.addEventListener("input", () => { fieldValues[f.id] = input.value; render(); });
+      wrap.appendChild(input);
+    }
+    form.appendChild(wrap);
+  });
+}
+function syncFormInputs() {
+  config.fields.forEach(f => {
+    if (f.type === "choice") {
+      const box = $("fi-" + f.id);
+      const cur = String(fieldValues[f.id] ?? "");
+      if (box) [...box.children].forEach(ch => ch.classList.toggle("sel", ch.textContent === cur));
+      return;
+    }
+    const el = $("fi-" + f.id);
+    if (el) el.value = fieldValues[f.id] ?? f.text ?? "";
+  });
+}
+function resetValuesToDefaults() {
+  fieldValues = {};
+  keepAllUnderlines = false;
+  $("keepAllUnderlines").checked = false;
+  config.fields.forEach(f => { fieldValues[f.id] = f.text ?? ""; });
+  syncFormInputs();
+  render();
+}
+
+/* ---------- 版本墙（按模板隔离） ---------- */
+function loadAllVersions() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); } catch (e) { return {}; }
+}
+function restoreVersions() {
+  versions = loadAllVersions()[tplId] || [];
+  renderVersions();
+}
+function persistVersions() {
+  const all = loadAllVersions();
+  all[tplId] = versions;
+  localStorage.setItem(LS_KEY, JSON.stringify(all));
+}
+function displayName(values) {
+  const fids = (config.batch && config.batch.fields && config.batch.fields.length)
+    ? config.batch.fields : (config.fields.length ? [config.fields[0].id] : []);
+  const name = fids.map(fid => values[fid]).filter(Boolean).join("-");
+  return name || "未命名";
+}
+function makeThumbFor(values) {
+  const tw = 240;
+  const s = tw / bgImage.naturalWidth;
+  const c = document.createElement("canvas");
+  c.width = tw;
+  c.height = Math.round(bgImage.naturalHeight * s);
+  renderOn(c.getContext("2d"), s, { values });
+  return c.toDataURL("image/jpeg", 0.85);
+}
+function addVersion(values, tag) {
+  const sig = JSON.stringify({ values, keepAllUnderlines });
+  if (versions.some(v => v.sig === sig)) { toast("已存在相同内容的版本，跳过"); return false; }
+  versions.push({
+    id: "v" + Date.now() + Math.random().toString(36).slice(2, 6),
+    sig, values: { ...values }, keepAllUnderlines, thumb: makeThumbFor(values),
+    tag: tag || "", created: Date.now(), name: displayName(values), sel: false
+  });
+  persistVersions(); renderVersions();
+  return true;
+}
+function renderVersions() {
+  const wall = $("versions");
+  wall.innerHTML = "";
+  $("verCount").textContent = versions.length ? versions.length + " 个版本" : "暂无版本，用「＋存为版本」或「批量生成」添加";
+  versions.forEach(v => {
+    const card = document.createElement("div");
+    card.className = "vcard" + (v.sel ? " sel" : "");
+    card.innerHTML =
+      '<img src="' + v.thumb + '">' +
+      '<span class="vname">' + esc(v.name) + "</span>" +
+      '<span class="vtag">' + esc(v.tag || "") + "</span>" +
+      '<div class="vops">' +
+      '<label><input type="checkbox" data-act="sel" ' + (v.sel ? "checked" : "") + ">选</label>" +
+      '<span style="flex:1"></span>' +
+      '<button data-act="load">载入</button><button data-act="del">删</button>' +
+      "</div>";
+    card.querySelector('[data-act="sel"]').addEventListener("change", e => { v.sel = e.target.checked; persistVersions(); card.className = "vcard" + (v.sel ? " sel" : ""); });
+    card.querySelector('[data-act="load"]').addEventListener("click", () => {
+      fieldValues = { ...v.values }; keepAllUnderlines = !!v.keepAllUnderlines; $("keepAllUnderlines").checked = keepAllUnderlines; syncFormInputs(); render(); toast("已载入版本：" + v.name);
+    });
+    card.querySelector('[data-act="del"]').addEventListener("click", () => {
+      versions = versions.filter(x => x.id !== v.id); persistVersions(); renderVersions();
+    });
+    wall.appendChild(card);
+  });
+}
+
+function renderPreflight(report) {
+  const box = $("preflight");
+  if (!box || !report?.length) { if (box) box.innerHTML = ""; return; }
+  const bad = report.filter(r => r.issues.length);
+  if (!bad.length) {
+    box.innerHTML = `<div class="preflight-panel"><span class="status-badge ok">检查通过</span> ${report.length} 条内容可导出</div>`;
+    return;
+  }
+  const errors = bad.reduce((n,r)=>n+r.issues.filter(x=>x.level==="error").length,0);
+  const warns = bad.reduce((n,r)=>n+r.issues.filter(x=>x.level==="warn").length,0);
+  box.innerHTML = `<div class="preflight-panel"><h4>导出前检查：${errors ? `<span class="status-badge err">${errors} 个错误</span>` : ""} ${warns ? `<span class="status-badge warn">${warns} 个提醒</span>` : ""}</h4><ul>${bad.slice(0,12).map(r=>`<li>第 ${r.index} 条：${r.issues.map(x=>esc(x.message)).join("；")}</li>`).join("")}</ul>${bad.length>12?`<div class="layerinfo">另有 ${bad.length-12} 条问题未显示</div>`:""}</div>`;
+}
+function preflightForExport(list) {
+  const report = validateRows(list.map(x => x.values), config.fields);
+  renderPreflight(report);
+  const errors = report.flatMap(r => r.issues.filter(x=>x.level==="error").map(x=>`第 ${r.index} 条：${x.message}`));
+  if (errors.length) {
+    toast(`发现 ${errors.length} 个阻断错误，已停止导出`, true);
+    return false;
+  }
+  const warns = report.filter(r=>r.issues.some(x=>x.level==="warn")).length;
+  if (warns && !confirm(`有 ${warns} 条内容包含提醒（详见导出前检查）。仍继续导出吗？`)) return false;
+  return true;
+}
+
+function applyPreviewZoom(value) {
+  const z=Math.max(.5,Math.min(2,Number(value)||1));
+  document.documentElement.style.setProperty("--preview-zoom",String(z));
+  $("zoomValue").textContent=Math.round(z*100)+"%";
+}
+function fitPreviewZoom() {
+  const stage = $("previewStage");
+  const center = $("center");
+  const baseW = stage.offsetWidth || 1;
+  const baseH = stage.offsetHeight || 1;
+  const maxW = Math.max(180, center.clientWidth - 20);
+  const maxH = Math.max(240, window.innerHeight * (innerWidth <= 700 ? .68 : .72));
+  applyPreviewZoom(Math.min(1, maxW / baseW, maxH / baseH));
+}
+function setMobilePanel(name) {
+  document.querySelectorAll(".mobile-tab").forEach(b => b.classList.toggle("active", b.dataset.panel === name));
+  const mobile = matchMedia("(max-width:700px)").matches;
+  document.body.dataset.mobilePanel = name;
+  $("mobileTabs").classList.toggle("hidden", !mobile);
+  if (!mobile) {
+    [$("center"), $("left"), $("versionPanel")].forEach(e => e?.classList.remove("mobile-panel-hidden"));
+    $("formArea")?.classList.remove("hidden"); $("batchArea")?.classList.remove("hidden");
+    return;
+  }
+  const make = name === "make";
+  const list = name === "list";
+  const versions = name === "versions";
+  $("center").classList.toggle("mobile-panel-hidden", !make);
+  $("left").classList.toggle("mobile-panel-hidden", !make && !list);
+  $("versionPanel").classList.toggle("mobile-panel-hidden", !versions);
+  $("formArea").classList.toggle("hidden", !make);
+  $("batchArea").classList.toggle("hidden", !list);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+let pinchStartDistance=0, pinchStartZoom=1;
+function bindMobileZoomAndTabs() {
+  $("zoomIn").addEventListener("click", () => applyPreviewZoom((parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--preview-zoom")) || 1) + .1));
+  $("zoomOut").addEventListener("click", () => applyPreviewZoom((parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--preview-zoom")) || 1) - .1));
+  $("zoomReset").addEventListener("click", () => applyPreviewZoom(1));
+  $("zoomFit").addEventListener("click", fitPreviewZoom);
+  document.querySelectorAll(".mobile-tab").forEach(b => b.addEventListener("click", () => setMobilePanel(b.dataset.panel)));
+  const stage = $("previewStage");
+  stage.addEventListener("touchstart", e => { if (e.touches.length === 2) { pinchStartDistance = Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); pinchStartZoom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--preview-zoom")) || 1; } }, {passive:true});
+  stage.addEventListener("touchmove", e => { if (e.touches.length === 2 && pinchStartDistance) { const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); applyPreviewZoom(pinchStartZoom*d/pinchStartDistance); e.preventDefault(); } }, {passive:false});
+  stage.addEventListener("touchend", () => { pinchStartDistance=0; }, {passive:true});
+  window.addEventListener("resize", () => {
+    const mobile=matchMedia("(max-width:700px)").matches;
+    if (!mobile) setMobilePanel("make");
+    else {
+      const p=document.body.dataset.mobilePanel || "make";
+      document.querySelectorAll(".mobile-tab").forEach(b=>b.classList.toggle("active",b.dataset.panel===p));
+      $("mobileTabs").classList.remove("hidden");
+    }
+  });
+  if (matchMedia("(max-width:700px)").matches) setMobilePanel("make");
+  fitPreviewZoom();
+}
+
+/* ---------- 导出 ---------- */
+function clearSaveImages() {
+  $("saveImagesList").replaceChildren();
+  saveImageUrls.forEach(url=>URL.revokeObjectURL(url));
+  saveImageUrls=[];
+}
+function showSaveImages(items) {
+  clearSaveImages();
+  const list=$("saveImagesList");
+  for(const item of items){
+    const card=document.createElement("div"); card.className="save-image-card";
+    const label=document.createElement("div"); label.className="save-image-name"; label.textContent=item.name;
+    const img=document.createElement("img"); img.alt=item.name; img.draggable=false; img.src=item.url;
+    card.append(label,img); list.appendChild(card);
+    saveImageUrls.push(item.url);
+  }
+  openOverlay("saveImagesOverlay");
+}
+
+function buildWidthOptions() {
+  const sel = $("exportWidth");
+  sel.innerHTML = "";
+  const widths = (config.exportWidths && config.exportWidths.length)
+    ? config.exportWidths : [{ label: "原图分辨率", width: null }];
+  widths.forEach(w => {
+    const opt = document.createElement("option");
+    opt.value = w.width == null ? "native" : String(w.width);
+    opt.textContent = w.label;
+    sel.appendChild(opt);
+  });
+  const custom = document.createElement("option");
+  custom.value = "custom";
+  custom.textContent = "自定义宽度…";
+  sel.appendChild(custom);
+}
+function targetExportWidth() {
+  const v = $("exportWidth").value;
+  if (v === "native") return null;
+  if (v === "custom") return Number($("customWidth").value) || null;
+  return Number(v) || null;
+}
+async function doExport(list) {
+  if (!config || !bgImage) { toast("请先上传/选择模板", true); return; }
+  if (!list.length) { toast("没有可导出的版本", true); return; }
+  if (!preflightForExport(list)) return;
+  const w = targetExportWidth();
+  const scale = w ? w / bgImage.naturalWidth : 1;
+  const c = document.createElement("canvas");
+  c.width = Math.round(bgImage.naturalWidth * scale);
+  c.height = Math.round(bgImage.naturalHeight * scale);
+  const ctx = c.getContext("2d");
+  const prefix = config.outputPrefix || "邀请函";
+  const inWeChat=wxMode;
+  if (STATIC_MODE || inWeChat) {
+    let i=0, pendingImages=[];
+    clearSaveImages();
+    try {
+      if (inWeChat && list.length > (STATIC_MODE ? 10 : 30)) {
+        const max=STATIC_MODE?10:30;
+        toast(`微信长按保存模式每批最多 ${max} 张；当前 ${list.length} 张，请分批导出`,true);
+        return;
+      }
+      if (!STATIC_MODE && inWeChat) {
+        const CHUNK=5, saved=[];
+        for(let start=0;start<list.length;start+=CHUNK){
+          const items=[];
+          for(const it of list.slice(start,start+CHUNK)){
+            renderOn(ctx,scale,{values:it.values});
+            items.push({filename:prefix+"_"+it.name,dataUrl:c.toDataURL("image/png")});
+          }
+          $("progress").textContent="保存到服务端 "+Math.min(start+CHUNK,list.length)+"/"+list.length+" …";
+          const resp=await fetch("/api/export",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items,visitor:visitorId(),template:config.title||""})});
+          if(!resp.ok) throw new Error("服务端返回 "+resp.status);
+          const data=await resp.json(); saved.push(...data.saved);
+        }
+        const stamp=Date.now();
+        pendingImages=saved.slice(0,30).map(name=>({name,url:"/output/"+encodeURIComponent(name)+"?v="+stamp}));
+        i=saved.length;
+        if(saved.length>30) toast(`共生成 ${saved.length} 张，当前显示前 30 张；请分批操作`,true);
+      } else {
+        for (const it of list) {
+          i++; $("progress").textContent = "生成中 " + i + "/" + list.length + " …";
+          renderOn(ctx, scale, { values: it.values });
+          const filename=prefix+"_"+it.name+".png";
+          if (inWeChat && STATIC_MODE) {
+            // 微信内置浏览器长按保存不稳定支持 blob: 地址，改用内嵌 PNG 原图数据
+            pendingImages.push({name:filename,url:c.toDataURL("image/png")});
+          } else {
+            const blob=await new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error("PNG 编码失败")),"image/png"));
+            if(inWeChat){
+              const url=URL.createObjectURL(blob);
+              pendingImages.push({name:filename,url});
+            } else {
+              const url=URL.createObjectURL(blob), a=document.createElement("a");
+              a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
+              setTimeout(()=>URL.revokeObjectURL(url),60000);
+              await new Promise(r=>setTimeout(r,350));
+            }
+          }
+        }
+      }
+      if(inWeChat){
+        const maxVisible=STATIC_MODE?10:30;
+        if(pendingImages.length>maxVisible){
+          pendingImages.slice(maxVisible).forEach(x=>{if(x.url.startsWith("blob:"))URL.revokeObjectURL(x.url);});
+          pendingImages=pendingImages.slice(0,maxVisible);
+          toast(`本次仅显示前 ${maxVisible} 张，请分批导出以便长按保存`,true);
+        }
+        showSaveImages(pendingImages);
+        $("progress").textContent=`已生成 ${i} 张。长按下方原图选择「保存图片」${i>maxVisible?`（当前显示前 ${maxVisible} 张）`:""}`;
+      } else {
+        $("progress").textContent="✅ 已生成 "+list.length+" 张并开始下载"+(list.length>1?"（浏览器若询问，请允许「下载多个文件」）":"");
+      }
+      toast(inWeChat?"PNG 已生成：长按图片即可保存":"已生成 "+list.length+" 张");
+    } catch(e){
+      pendingImages.filter(x=>x.url.startsWith("blob:")).forEach(x=>URL.revokeObjectURL(x.url));
+      $("progress").textContent=""; toast("导出失败："+e.message,true);
+    }
+    return;
+  }
+  const CHUNK = 5;
+  const savedFiles = [];
+  try {
+    for (let i = 0; i < list.length; i += CHUNK) {
+      const items = [];
+      for (const it of list.slice(i, i + CHUNK)) {
+        renderOn(ctx, scale, { values: it.values });
+        items.push({ filename: prefix + "_" + it.name, dataUrl: c.toDataURL("image/png") });
+      }
+      $("progress").textContent = "导出中 " + Math.min(i + CHUNK, list.length) + "/" + list.length + " …";
+      const resp = await fetch("/api/export", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items, visitor: visitorId(), template: config.title || "" })
+      });
+      if (!resp.ok) throw new Error("服务端返回 " + resp.status);
+      const data = await resp.json();
+      savedFiles.push(...data.saved);
+    }
+    const links = savedFiles.slice(0, 12).map(n =>
+      '<a href="/output/' + encodeURIComponent(n) + '" download="' + esc(n) + '" style="color:var(--accent)">' + esc(n) + "</a>"
+    ).join("<br>");
+    const more = savedFiles.length > 12 ? '<div class="layerinfo">…共 ' + savedFiles.length + " 张</div>" : "";
+    $("progress").innerHTML =
+      "✅ 已导出 " + savedFiles.length + " 张（点文件名下载）" +
+      '<div style="text-align:left;font-size:12px">' + links + more + "</div>" +
+      '<button id="zipAllBtn" style="margin-top:6px">⬇ 全部打包下载 zip</button>';
+    $("zipAllBtn").addEventListener("click", () => downloadZip(savedFiles));
+    toast("已导出 " + savedFiles.length + " 张");
+  } catch (e) {
+    $("progress").textContent = "";
+    toast((e instanceof TypeError && String(e.message).includes("fetch"))
+      ? "无法连接本地服务：请启动 启动邀请函工具.bat 并刷新页面"
+      : "导出失败：" + e.message, true);
+  }
+}
+
+/* ---------- 批量 ---------- */
+function batchParse() {
+  if (!config || !bgImage) { toast("请先上传/选择模板", true); return; }
+  const delim = (config.batch && config.batch.delimiter) || "/";
+  const fids = (config.batch && config.batch.fields && config.batch.fields.length)
+    ? config.batch.fields : [config.fields[0].id];
+  const lines = $("batchInput").value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const rows = lines.map(line => line.split(delim).map(s => s.trim()));
+  const values = rows.map(parts => {
+    const v = {};
+    fids.forEach((fid, i) => { v[fid] = parts[i] ?? ""; });
+    config.fields.forEach(f => { if (!(f.id in v)) v[f.id] = f.text ?? ""; });
+    return v;
+  });
+  const report = validateRows(values, config.fields);
+  if (!values.length) { toast("先粘贴名单，或使用「导入 CSV / Excel」", true); return; }
+  const invalid = report.filter(r => r.issues.some(x => x.level === "error"));
+  if (invalid.length && !confirm(`名单有 ${invalid.length} 行错误（已在导入前检查区标出）。仍导入有效行吗？`)) return;
+  let added = 0, dup = 0;
+  values.forEach((v, i) => {
+    if (report[i].issues.some(x => x.level === "error")) return;
+    if (addVersion(v, "批量")) added++; else dup++;
+  });
+  toast(`批量生成：${added} 个新版本${dup ? "，" + dup + " 条重复跳过" : ""}${invalid.length ? "，错误行已跳过" : ""}`);
+  renderPreflight(report, values);
+}
+
+const FIELD_HINTS = {
+  name: ["姓名", "名字", "name", "中文名", "嘉宾姓名"],
+  title: ["称谓", "职务", "头衔", "title", "身份", "职位"],
+  date: ["日期", "时间", "date"],
+  blank1: ["姓名", "名字", "name", "填空", "称呼", "创作人"],
+  heading: ["抬头", "称谓", "身份", "类型"],
+  honorific: ["称谓", "女士先生", "性别"]
+};
+function normHeader(s) { return String(s || "").trim().toLowerCase().replace(/[\s_\-（）()【】\[\]：:]/g, ""); }
+function guessColumn(headers, field) {
+  const hints = [...(FIELD_HINTS[field.id] || []), field.label || ""].map(normHeader).filter(Boolean);
+  const nh = headers.map(normHeader);
+  let idx = nh.findIndex(h => hints.some(k => k && (h === k || h.includes(k) || k.includes(h))));
+  return idx;
+}
+function parseDelimited(text, delim) {
+  const rows = [];
+  let row = [], cell = "", quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      if (quoted && text[i + 1] === '"') { cell += '"'; i++; }
+      else quoted = !quoted;
+    } else if (!quoted && ch === delim) { row.push(cell); cell = ""; }
+    else if (!quoted && (ch === "\n" || ch === "\r")) {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell); rows.push(row); row = []; cell = "";
+    } else cell += ch;
+  }
+  row.push(cell); rows.push(row);
+  return rows.filter(r => r.some(c => String(c).trim() !== ""));
+}
+async function readListFile(file) {
+  workbookFileName = file.name;
+  let rows;
+  const ext = file.name.split(".").pop().toLowerCase();
+  if (ext === "xlsx" || ext === "xls") {
+    if (!window.XLSX) throw new Error("本地 Excel 解析组件未加载；刷新页面后重试");
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, { type: "array", cellDates: true });
+    workbookSheets = wb.SheetNames.map(n => ({ name: n, rows: XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: "" }) }));
+    $("importSheet").innerHTML = workbookSheets.map((s, i) => `<option value="${i}">${esc(s.name)}</option>`).join("");
+    rows = workbookSheets[0]?.rows || [];
+    $("importSheet").classList.toggle("hidden", workbookSheets.length < 2);
+  } else {
+    const text = (await file.text()).replace(/^\uFEFF/, "");
+    const firstLine = text.split(/\r?\n/, 1)[0];
+    const delim = ext === "tsv" || ext === "txt" ? "\t" : ((firstLine.match(/\t/g)||[]).length > (firstLine.match(/,/g)||[]).length ? "\t" : ",");
+    rows = parseDelimited(text, delim);
+    workbookSheets = [{ name: "文件", rows }];
+    $("importSheet").innerHTML = '<option value="0">文件</option>';
+    $("importSheet").classList.add("hidden");
+  }
+  configureWorkbookRows(rows);
+}
+function configureWorkbookRows(rows) {
+  if (!rows.length) throw new Error("文件中没有数据行");
+  workbookHeaders = rows[0].map((h, i) => String(h || "").trim() || `列 ${i + 1}`);
+  workbookRows = rows.slice(1).filter(r => r.some(c => String(c ?? "").trim() !== ""));
+  workbookMapping = {};
+  const fields = config.fields.filter(f => f.variable !== false);
+  fields.forEach(f => { workbookMapping[f.id] = guessColumn(workbookHeaders, f); });
+  renderImportMapping();
+  buildWorkbookPreview();
+}
+function renderImportMapping() {
+  const box = $("importMapping"); box.innerHTML = "";
+  const fields = config.fields.filter(f => f.variable !== false);
+  fields.forEach(f => {
+    const label = document.createElement("label"); label.textContent = f.label || f.id;
+    const sel = document.createElement("select"); sel.dataset.fieldId = f.id;
+    sel.innerHTML = '<option value="-1">不导入</option>' + workbookHeaders.map((h, i) => `<option value="${i}">${esc(h)}</option>`).join("");
+    sel.value = String(workbookMapping[f.id] ?? -1);
+    sel.addEventListener("change", () => { workbookMapping[f.id] = Number(sel.value); buildWorkbookPreview(); });
+    box.append(label, sel);
+  });
+}
+function mappedWorkbookValues(row) {
+  const values = {};
+  config.fields.forEach(f => {
+    const col = workbookMapping[f.id];
+    values[f.id] = col == null || col < 0 ? "" : String(row[col] ?? "").trim();
+  });
+  return values;
+}
+function validateRows(rows, fields = config.fields) {
+  const seen = new Map();
+  return rows.map((values, index) => {
+    const issues = [];
+    fields.forEach(f => {
+      const val = String(values[f.id] ?? "");
+      if (f.variable !== false && !val.trim() && f.required && f.type !== "fill" && f.type !== "choice") issues.push({level:"error", message:`${f.label || f.id} 为必填项`});
+      else if (f.variable !== false && !val.trim() && f.type !== "fill" && f.type !== "choice") issues.push({level:"warn", message:`${f.label || f.id} 为空`});
+      if (f.type === "choice" && val && !(f.options || []).some(o => o.text === val)) issues.push({level:"error", message:`${f.label || f.id}「${val}」不是有效选项`});
+      const unresolved = val.match(/\{([^{}]+)\}/g) || [];
+      unresolved.forEach(ref => {
+        const key=ref.slice(1,-1).trim();
+        if (!fields.some(x => x.id===key || x.label===key)) issues.push({level:"error",message:`未知字段引用 ${ref}`});
+      });
+      if (f.type === "fill" && val && f.blank && val.length > Math.max(8, f.blank.length * 2)) issues.push({level:"warn",message:`${f.label || "填空"}较长（${val.length} 字），下划线会延伸`});
+      if (f.maxWidth && f.fontSize && val.length * f.fontSize > f.maxWidth * 1.5 && !f.autoShrink) issues.push({level:"warn",message:`${f.label || f.id}可能超出文本框`});
+    });
+    const filename = displayName(values).replace(/[\\/:*?"<>|\r\n]/g,"_");
+    if (seen.has(filename)) issues.push({level:"warn",message:`导出文件名重复（与第 ${seen.get(filename)} 行相同）`});
+    else seen.set(filename,index+1);
+    return {index:index+1,values,issues};
+  });
+}
+function buildWorkbookPreview() {
+  const rows = workbookRows.map(mappedWorkbookValues);
+  workbookParsedRows = rows;
+  const report = validateRows(rows);
+  const errors = report.reduce((n,r)=>n+r.issues.filter(x=>x.level==="error").length,0);
+  const warns = report.reduce((n,r)=>n+r.issues.filter(x=>x.level==="warn").length,0);
+  $("importSummary").textContent = `${workbookFileName} · ${rows.length} 行数据 · ${errors} 个错误 · ${warns} 个提醒`;
+  const cols = config.fields.filter(f => f.variable !== false);
+  const shown = report.slice(0,12);
+  const fillCols = cols.filter(f=>f.type==="fill");
+  $("importPreview").innerHTML = '<table><thead><tr><th>行</th>' + cols.map(f=>`<th>${esc(f.label||f.id)}</th>`).join("") + fillCols.map(f=>'<th>保留横线</th>').join("") + '<th>检查</th></tr></thead><tbody>' + shown.map(r=>`<tr class="${r.issues.some(x=>x.level==='error')?'row-issue':''}"><td>${r.index+1}</td>${cols.map(f=>`<td>${esc(r.values[f.id]||"")}</td>`).join("")}${fillCols.map(f=>`<td>${r.values["__underline:"+f.id]?'保留':'无'}</td>`).join("")}<td>${r.issues.map(x=>esc(x.message)).join("；")||"OK"}</td></tr>`).join("") + '</tbody></table>';
+  const bad = report.filter(r=>r.issues.length);
+  $("importErrors").classList.toggle("hidden", !bad.length);
+  $("importErrors").innerHTML = bad.length ? `<b>需要检查的行（${bad.length}）</b><ul class="issue-list">${bad.slice(0,20).map(r=>`<li>第 ${r.index+1} 行：${r.issues.map(x=>esc(x.message)).join("；")}</li>`).join("")}</ul>` : "";
+  $("importConfirm").disabled = rows.length === 0 || errors > 0;
+}
+async function handleListFile(file) {
+  try {
+    await readListFile(file);
+    $("importFileName").textContent = workbookFileName;
+    openOverlay("importOverlay");
+  } catch (e) { toast("名单读取失败：" + e.message, true); }
+}
+function confirmWorkbookImport() {
+  const report = validateRows(workbookParsedRows);
+  const bad = report.filter(r => r.issues.some(x => x.level === "error"));
+  if (bad.length) { toast(`有 ${bad.length} 行存在错误，已阻止导入`, true); return; }
+  let added = 0, dup = 0;
+  workbookParsedRows.forEach(v => { if (addVersion(v, "名单导入")) added++; else dup++; });
+  closeOverlay("importOverlay");
+  toast(`名单导入：${added} 个版本${dup ? `，${dup} 条重复跳过` : ""}`);
+  renderPreflight(report);
+}
+
+/* ---------- 校准模式 ---------- */
+function setCalib(on) {
+  calibMode = on;
+  $("saveConfig").classList.toggle("hidden", !on);
+  if (on) {
+    $("previewStage").classList.add("calibrating");
+    if (!refImage) { toast("正在加载校准参考图…"); loadReference(tplId); }
+  } else {
+    $("previewStage").classList.remove("calibrating");
+    closeFieldEditor(); selectedFieldId = null;
+  }
+  render();
+}
+function toImageCoords(e) {
+  const canvas = $("main");
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left) * canvas.width / rect.width,
+    y: (e.clientY - rect.top) * canvas.height / rect.height
+  };
+}
+function openFieldEditor(f) {
+  editorFieldId = f.id;
+  const t = editTarget(f);
+  $("fieldEditor").classList.remove("hidden");
+  $("fe-label").value = f.label || "";
+  $("fe-x").value = t.x;
+  $("fe-y").value = t.y;
+  $("fe-fontSize").value = t.fontSize;
+  $("fe-letterSpacing").value = t.letterSpacing || 0;
+  $("fe-lineHeight").value = t.lineHeight || 1.5;
+  $("fe-color").value = /^#[0-9a-fA-F]{6}$/.test(t.color || "") ? t.color : "#000000";
+  $("fe-maxWidth").value = t.maxWidth ?? "";
+  $("fe-align").value = t.align || "center";
+  $("fe-baseline").value = t.baseline || "middle";
+  $("fe-autoShrink").checked = !!t.autoShrink;
+  $("fe-blankModeBox").style.display = f.type === "fill" ? "" : "none";
+  if (f.type === "fill") $("fe-blankMode").value = f.blankMode || "overlay";
+}
+function closeFieldEditor() { editorFieldId = null; $("fieldEditor").classList.add("hidden"); }
+function syncEditorValues(f) {
+  if (editorFieldId !== f.id) return;
+  const t = editTarget(f);
+  $("fe-x").value = t.x; $("fe-y").value = t.y;
+}
+function bindEditorInputs() {
+  const bindNum = (id, key, int) => {
+    $(id).addEventListener("input", () => {
+      const f = editTarget(getField(editorFieldId)); if (!f) return;
+      let v = parseFloat($(id).value);
+      if (isNaN(v)) return;
+      if (int) v = Math.round(v);
+      f[key] = v; render();
+    });
+  };
+  bindNum("fe-x", "x", true); bindNum("fe-y", "y", true);
+  bindNum("fe-fontSize", "fontSize", true);
+  bindNum("fe-letterSpacing", "letterSpacing");
+  bindNum("fe-lineHeight", "lineHeight");
+  $("fe-color").addEventListener("input", () => { const f = editTarget(getField(editorFieldId)); if (f) { f.color = $("fe-color").value; render(); } });
+  $("fe-maxWidth").addEventListener("input", () => {
+    const f = editTarget(getField(editorFieldId)); if (!f) return;
+    const v = parseFloat($("fe-maxWidth").value);
+    f.maxWidth = isNaN(v) ? null : v; render();
+  });
+  $("fe-align").addEventListener("change", () => { const f = editTarget(getField(editorFieldId)); if (f) { f.align = $("fe-align").value; render(); } });
+  $("fe-baseline").addEventListener("change", () => { const f = editTarget(getField(editorFieldId)); if (f) { f.baseline = $("fe-baseline").value; render(); } });
+  $("fe-autoShrink").addEventListener("change", () => { const f = editTarget(getField(editorFieldId)); if (f) { f.autoShrink = $("fe-autoShrink").checked; render(); } });
+  $("fe-blankMode").addEventListener("change", () => { const f = getField(editorFieldId); if (f && f.type === "fill") { f.blankMode = $("fe-blankMode").value; render(); } });
+  $("fe-label").addEventListener("input", () => {
+    const f = getField(editorFieldId); if (!f) return;
+    f.label = $("fe-label").value; buildForm(); syncFormInputs();
+  });
+  $("fe-add").addEventListener("click", () => {
+    const base = getField(editorFieldId) || config.fields[0] || {};
+    const f = {
+      id: "f" + Date.now(), label: "新字段", text: "文字",
+      x: base.x || bgImage.naturalWidth / 2, y: (base.y || bgImage.naturalHeight / 2) + 100,
+      fontSize: base.fontSize || 60, color: base.color || "#333333",
+      family: base.family, align: base.align || "center", baseline: "middle",
+      letterSpacing: 0, lineHeight: 1.5, autoShrink: false, maxWidth: null,
+      variable: true
+    };
+    config.fields.push(f);
+    buildForm(); syncFormInputs();
+    selectedFieldId = f.id; openFieldEditor(f); render();
+  });
+  $("fe-del").addEventListener("click", () => {
+    const f = getField(editorFieldId); if (!f) return;
+    if (!confirm("删除字段「" + (f.label || f.id) + "」？（需在保存配置后生效）")) return;
+    config.fields = config.fields.filter(x => x.id !== f.id);
+    closeFieldEditor(); selectedFieldId = null;
+    buildForm(); syncFormInputs(); render();
+  });
+}
+async function saveConfigToServer() {
+  if (STATIC_MODE) {
+    localStorage.setItem("web-invite-config-" + tplId, JSON.stringify(config));
+    toast("✅ 配置已保存到本浏览器（云端版不回写服务器）");
+    return;
+  }
+  try {
+    const resp = await apiFetch(`/api/templates/${tplId}/config`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(config)
+    });
+    if (!resp.ok) throw new Error("状态 " + resp.status);
+    toast("✅ 配置已保存");
+  } catch (e) { toast("保存失败：" + e.message, true); }
+}
+
+/* ---------- 上传模板 ---------- */
+async function doUpload() {
+  const psdFile = $("upPsd").files[0];
+  if (!psdFile) { toast("请选择 PSD 文件", true); return; }
+  const btn = $("upGo");
+  btn.disabled = true; btn.textContent = "解析中…";
+  try {
+    const fontFiles = [...$("upFonts").files];
+    if (fontFiles.length) {
+      const fd = new FormData();
+      fontFiles.forEach(f => fd.append("files", f));
+      const r = await apiFetch("/api/fonts", { method: "POST", body: fd });
+      if (!r.ok) throw new Error("字体上传失败");
+    }
+    const fd = new FormData();
+    fd.append("name", $("upName").value.trim());
+    fd.append("file", psdFile);
+    const resp = await apiFetch("/api/templates", { method: "POST", body: fd });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || "状态 " + resp.status);
+    }
+    const data = await resp.json();
+    await loadTemplates();
+    closeOverlay("uploadOverlay");
+    $("upPsd").value = ""; $("upFonts").value = "";
+    await selectTemplate(data.id);
+    openMatchModal(data.layers, config, data.warnings);
+    toast("模板已上传：" + data.name);
+  } catch (e) {
+    const box = $("upWarn");
+    box.textContent = (e instanceof TypeError && String(e.message).includes("fetch"))
+      ? "无法连接到本地服务（服务可能没在运行）。请双击 web-invite\\启动邀请函工具.bat 启动，然后刷新本页面再试。"
+      : "上传失败：" + e.message;
+    box.classList.remove("hidden");
+  } finally {
+    btn.disabled = false; btn.textContent = "上传并解析";
+  }
+}
+
+/* ---------- 字段匹配 ---------- */
+async function openMatchForCurrent() {
+  try {
+    const layers = await (await fetch(`/api/templates/${tplId}/layers`, { cache: "no-store" })).json();
+    openMatchModal(layers, config, []);
+  } catch (e) { toast("图层信息加载失败：" + e.message, true); }
+}
+
+async function openMatchModal(layers, cfg, warnings) {
+  matchLayers = layers || [];
+  openOverlay("matchOverlay");
+  $("matchTplName").textContent = cfg.title || "";
+  const wbox = $("matchWarn");
+  wbox.innerHTML = warnings && warnings.length
+    ? warnings.map(w => '<div class="warnbox">' + esc(w) + "</div>").join("")
+    : "";
+  if (matchLayers.length) {
+    wbox.insertAdjacentHTML("beforeend",
+      '<div class="layerinfo">检测到 ' + matchLayers.length + ' 个文字图层：' +
+      matchLayers.map(L => esc(L.layerName) + "「" + esc(L.text.slice(0, 10)) + "」").join("、") + "</div>");
+  }
+  wbox.insertAdjacentHTML("beforeend",
+    '<div class="layerinfo">💡 句子里要带名字（如「尊敬的___创作人：」）？把「文字」改成模板并用 {姓名} 占位：<b>尊敬的新片场创作人{姓名}：</b>——渲染时自动填入姓名字段的值；点选字段也能引用，如 {女士/先生}</div>');
+  // 字体下拉
+  let fonts = [];
+  try { fonts = await (await fetch("/api/fonts", { cache: "no-store" })).json(); } catch (e) { }
+  const fsel = $("matchFont");
+  fsel.innerHTML = fonts.length
+    ? fonts.map(f => `<option value="${esc(f)}">${esc(f)}</option>`).join("")
+    : '<option value="">（还没有字体文件，请上传）</option>';
+  if (cfg.fonts && cfg.fonts[0]) fsel.value = cfg.fonts[0].file;
+  buildMatchRows(cfg);
+}
+
+function buildMatchRows(cfg) {
+  const box = $("matchRows");
+  box.innerHTML = "";
+  cfg.fields.forEach((f, i) => {
+    const row = document.createElement("div");
+    row.className = "match-row";
+    if (f.type === "choice") {
+      row.style.gridTemplateColumns = "110px 1fr 52px 28px";
+      row.innerHTML =
+        `<input data-k="label" value="${esc(f.label || "")}" title="表单标签">` +
+        `<div style="font-size:12px">` +
+        (f.options || []).map(o => '<span class="tag">' + esc(o.text) + "</span>").join(" ") +
+        '<div class="layerinfo">自动分组：' +
+        (f.options || []).map(o => o.layerName ? "图层「" + esc(o.layerName) + "」" : "「" + esc(o.text) + "」(样式自动补)").join("、") +
+        "；页面上点选切换</div></div>" +
+        '<label data-k="variable" style="font-size:11px;display:flex;gap:3px;align-items:center"><input type="checkbox" data-k="variable" ' + (f.variable ? "checked" : "") + ' style="width:auto">可变</label>' +
+        '<button class="danger" data-k="del" title="删除字段">✕</button>';
+      row.querySelector('[data-k="label"]').addEventListener("input", e => { f.label = e.target.value; });
+      row.querySelector('[data-k="variable"]').addEventListener("change", e => { f.variable = e.target.checked; });
+      row.querySelector('[data-k="del"]').addEventListener("click", () => {
+        cfg.fields.splice(i, 1); buildMatchRows(cfg);
+      });
+      box.appendChild(row);
+      return;
+    }
+    row.innerHTML =
+      `<input data-k="label" value="${esc(f.label || "")}" title="表单标签">` +
+      `<input data-k="text" value="${esc(f.text || "")}" title="默认文字"${f.type === "fill" ? ' placeholder="留空=纯下划线；填 {姓名} 跟随姓名字段"' : ""}>` +
+      `<select data-k="layer"><option value="-1">— 未绑定 —</option>` +
+      matchLayers.map((L, li) => {
+        const sel = f.layerName === L.layerName && f.text === L.text ? " selected" : "";
+        return `<option value="${li}"${sel}>${esc(L.layerName)}「${esc(L.text.slice(0, 8))}」</option>`;
+      }).join("") + `</select>` +
+      `<label style="font-size:11px;display:flex;gap:3px;align-items:center"><input type="checkbox" data-k="variable" ${f.variable ? "checked" : ""} style="width:auto">可变</label>` +
+      `<button class="danger" data-k="del" title="删除字段">✕</button>` +
+      `<div class="layerinfo" data-k="info" style="grid-column:1/-1">${f.type === "fill"
+        ? "已识别下划线空位：" + esc(f.prefix) + "【" + esc(f.blank) + "】" + esc(f.suffix) + (f.fontPS ? " · " + esc(f.fontPS) : "")
+        : esc(f.fontPS || "")}</div>`;
+    row.querySelector('[data-k="label"]').addEventListener("input", e => { f.label = e.target.value; });
+    row.querySelector('[data-k="text"]').addEventListener("input", e => { f.text = e.target.value; });
+    row.querySelector('[data-k="layer"]').addEventListener("change", e => {
+      const li = Number(e.target.value);
+      if (li < 0 || !matchLayers[li]) return;
+      const L = matchLayers[li];
+      f.text = L.text; f.label = f.label || "字段" + (i + 1);
+      f.fontSize = L.fontSize || f.fontSize; f.color = L.color || f.color;
+      if (L.bbox) {
+        f.x = Math.round((L.bbox[0] + L.bbox[2]) / 2);
+        f.y = Math.round((L.bbox[1] + L.bbox[3]) / 2);
+        f.maxWidth = Math.round((L.bbox[2] - L.bbox[0]) * 1.4);
+      }
+      f.variable = true; f.fontPS = L.fontPS; f.layerName = L.layerName;
+      f.autoShrink = true;
+      buildMatchRows(cfg);
+    });
+    row.querySelector('[data-k="variable"]').addEventListener("change", e => { f.variable = e.target.checked; });
+    row.querySelector('[data-k="del"]').addEventListener("click", () => {
+      cfg.fields.splice(i, 1); buildMatchRows(cfg);
+    });
+    box.appendChild(row);
+  });
+}
+
+async function saveMatch() {
+  const file = $("matchFont").value;
+  if (!file) { toast("请先选择或上传字体文件", true); return; }
+  config.fonts = [{ family: Path_stem(file), file }];
+  config.fields.forEach(f => { f.family = Path_stem(file); });
+  const varIds = config.fields.filter(f => f.variable).map(f => f.id);
+  if (varIds.length) config.batch = { delimiter: "/", fields: varIds };
+  const resp = await apiFetch(`/api/templates/${tplId}/config`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config)
+  });
+  if (!resp.ok) { toast("保存失败", true); return; }
+  closeOverlay("matchOverlay");
+  await selectTemplate(tplId);
+  toast("✅ 匹配已保存，模板可用");
+}
+function Path_stem(fn) { return fn.replace(/\.(ttf|otf|woff2?|ttc)$/i, ""); }
+
+async function uploadMatchFonts(files) {
+  if (!files.length) return;
+  const fd = new FormData();
+  [...files].forEach(f => fd.append("files", f));
+  const r = await fetch("/api/fonts", { method: "POST", body: fd });
+  if (!r.ok) { toast("字体上传失败", true); return; }
+  const data = await r.json();
+  const fsel = $("matchFont");
+  data.saved.forEach(fn => {
+    if (![...fsel.options].some(o => o.value === fn)) {
+      const opt = document.createElement("option");
+      opt.value = fn; opt.textContent = fn;
+      fsel.appendChild(opt);
+    }
+  });
+  fsel.value = data.saved[data.saved.length - 1];
+  toast("字体已上传：" + data.saved.join("、"));
+}
+
+/* ---------- 事件绑定 ---------- */
+function bindEvents() {
+  bindEditorInputs();
+  bindMobileZoomAndTabs();
+  $("backupTpl").addEventListener("click", backupTemplates);
+  $("restoreTpl").addEventListener("click", () => $("restoreFile").click());
+  $("restoreFile").addEventListener("change", e => restoreTemplates(e.target.files[0]));
+  $("importListBtn").addEventListener("click", () => $("batchFile").click());
+  $("batchFile").addEventListener("change", e => { if (e.target.files[0]) handleListFile(e.target.files[0]); e.target.value = ""; });
+  $("importSheet").addEventListener("change", () => { const s = workbookSheets[Number($("importSheet").value)]; if (s) configureWorkbookRows(s.rows); });
+  $("importConfirm").addEventListener("click", confirmWorkbookImport);
+
+  $("tplSelect").addEventListener("change", e => { if (e.target.value) selectTemplate(e.target.value); });
+  $("btnCopyTpl").addEventListener("click", async () => {
+    const t = templates.find(x => x.id === tplId);
+    const name = prompt("复制为新模板，名称：", (t ? t.name : "模板") + "-副本");
+    if (name == null) return;
+    const fd = new FormData();
+    fd.append("name", name);
+    try {
+      const resp = await apiFetch(`/api/templates/${tplId}/duplicate`, { method: "POST", body: fd });
+      if (!resp.ok) throw new Error("状态 " + resp.status);
+      const data = await resp.json();
+      await loadTemplates();
+      await selectTemplate(data.id);
+      toast("已复制为模板：" + data.name);
+    } catch (e) { toast("复制失败：" + e.message, true); }
+  });
+  $("btnUpload").addEventListener("click", () => { $("upWarn").classList.add("hidden"); openOverlay("uploadOverlay"); });
+  $("btnMatch").addEventListener("click", async () => {
+    if (!(await askPagePassword("字段匹配"))) return;
+    openMatchForCurrent();
+  });
+  $("btnDelTpl").addEventListener("click", async () => {
+    if (!(await askPagePassword("删除模板"))) return;
+    const t = templates.find(x => x.id === tplId);
+    if (!confirm("删除模板「" + (t ? t.name : tplId) + "」？其版本也会清除")) return;
+    await apiFetch(`/api/templates/${tplId}`, { method: "DELETE" });
+    versions = []; persistVersions();
+    tplId = null;
+    await loadTemplates();
+    if (templates.length) await selectTemplate(templates[0].id);
+    else { config = null; bgImage = null; refImage = null; $("btnMatch").disabled = true; $("btnDelTpl").disabled = true; $("btnCopyTpl").disabled = true; renderEmptyCanvas(); openOverlay("uploadOverlay"); }
+  });
+  document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => {
+    const id=b.dataset.close; closeOverlay(id); if(id==="saveImagesOverlay") clearSaveImages();
+  }));
+  document.querySelectorAll(".overlay").forEach(o => o.addEventListener("pointerdown", e => { if (e.target === o) { o.classList.add("hidden"); if(o.id==="saveImagesOverlay") clearSaveImages(); } }));
+
+  $("upGo").addEventListener("click", doUpload);
+  $("matchFontUp").addEventListener("change", e => uploadMatchFonts(e.target.files));
+  $("matchAdd").addEventListener("click", () => {
+    if (!config) return;
+    config.fields.push({
+      id: "f" + Date.now(), label: "新字段", text: "", variable: true,
+      x: bgImage ? bgImage.naturalWidth / 2 : 400, y: bgImage ? bgImage.naturalHeight / 2 : 600,
+      fontSize: 60, color: "#333333", align: "center", baseline: "middle",
+      letterSpacing: 0, lineHeight: 1.5, autoShrink: true, maxWidth: null
+    });
+    buildMatchRows(config);
+  });
+  $("matchSave").addEventListener("click", saveMatch);
+
+  $("saveVersion").addEventListener("click", () => { if (addVersion(fieldValues, "")) toast("已存为版本：" + displayName(fieldValues)); });
+  $("keepAllUnderlines").addEventListener("change", e => { keepAllUnderlines = e.target.checked; render(); });
+  $("resetForm").addEventListener("click", resetValuesToDefaults);
+  $("exportCurrent").addEventListener("click", () => doExport([{ name: displayName(fieldValues), values: { ...fieldValues } }]));
+
+  $("batchGen").addEventListener("click", batchParse);
+  $("exportSelected").addEventListener("click", () => doExport(versions.filter(v => v.sel).map(v => ({ name: v.name, values: v.values }))));
+  $("exportAll").addEventListener("click", () => doExport(versions.map(v => ({ name: v.name, values: v.values }))));
+  $("clearVersions").addEventListener("click", () => {
+    if (!versions.length) return;
+    if (confirm("清空当前模板的全部 " + versions.length + " 个版本？")) { versions = []; persistVersions(); renderVersions(); }
+  });
+
+  $("exportWidth").addEventListener("change", () => {
+    $("customWidth").classList.toggle("hidden", $("exportWidth").value !== "custom");
+  });
+
+  $("calibToggle").addEventListener("change", e => setCalib(e.target.checked));
+  $("calibAlpha").addEventListener("input", () => { if (calibMode) render(); });
+  $("saveConfig").addEventListener("click", saveConfigToServer);
+
+  const canvas = $("main");
+  canvas.addEventListener("pointerdown", e => {
+    if (!calibMode || !config) return;
+    const pt = toImageCoords(e);
+    const ctx = canvas.getContext("2d");
+    for (let i = config.fields.length - 1; i >= 0; i--) {
+      const f = config.fields[i];
+      const b = fieldBox(ctx, f, 1, fieldValues);
+      const pad = 16;
+      if (pt.x >= b.left - pad && pt.x <= b.left + b.w + pad && pt.y >= b.top - pad && pt.y <= b.top + b.h + pad) {
+        selectedFieldId = f.id;
+        dragState = { id: f.id, lastPt: pt, fx: f.x, fy: f.y };
+        try { canvas.setPointerCapture(e.pointerId); } catch (err) { }
+        openFieldEditor(f);
+        render();
+        e.preventDefault();
+        return;
+      }
+    }
+    selectedFieldId = null; closeFieldEditor(); render();
+  });
+  canvas.addEventListener("pointermove", e => {
+    if (!calibMode || !dragState) return;
+    const pt = toImageCoords(e);
+    const f0 = getField(dragState.id);
+    if (!f0) return;
+    const f = editTarget(f0);  // 点选字段拖的是当前选中的选项
+    if (!f) return;
+    dragState.fx += pt.x - dragState.lastPt.x;
+    dragState.fy += pt.y - dragState.lastPt.y;
+    dragState.lastPt = pt;
+    f.x = Math.round(dragState.fx);
+    f.y = Math.round(dragState.fy);
+    syncEditorValues(f0);
+    render();
+  });
+  window.addEventListener("pointerup", () => { dragState = null; });
+
+  window.addEventListener("keydown", e => {
+    if (!calibMode || !selectedFieldId) return;
+    const tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select") return;
+    const f = getField(selectedFieldId); if (!f) return;
+    const t = editTarget(f);
+    const step = e.shiftKey ? 10 : 1;
+    if (e.key === "ArrowLeft") t.x -= step;
+    else if (e.key === "ArrowRight") t.x += step;
+    else if (e.key === "ArrowUp") t.y -= step;
+    else if (e.key === "ArrowDown") t.y += step;
+    else return;
+    e.preventDefault(); syncEditorValues(f); render();
+  });
+}
+</script>
+</body>
+</html>

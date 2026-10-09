@@ -1,0 +1,29 @@
+# Secrets, local configuration, generated data
+.env
+.env.*
+!.env.example
+*.local
+
+# User templates, fonts, generated images, and logs
+assets/templates/**
+assets/templates.json
+assets/fonts/**
+output/**
+logs/**
+dist-site/**
+dist-site.zip
+test-fixtures/**
+
+# Python and editor artifacts
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.idea/
+.vscode/
+
+# Temporary files and local exports
+*.tmp
+*.log
+*_test.psd

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>导出统计</title>
+<link rel="icon" href="data:,">
+<style>
+  :root{ --bg:#f5f4f1; --panel:#fff; --line:#e3e0d8; --ink:#2c2a26; --sub:#8a857a; --accent:#3a6ea5; }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.6 "Microsoft YaHei",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+  header{display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  header h1{font-size:16px;margin:0}
+  header button,header select,header input{border:1px solid var(--line);border-radius:6px;padding:5px 10px;font:inherit;background:#fff}
+  header button{cursor:pointer}
+  header button:hover{border-color:var(--accent);color:var(--accent)}
+  main{padding:14px 18px}
+  .cards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 18px;min-width:130px}
+  .card b{display:block;font-size:24px}
+  .card span{font-size:12px;color:var(--sub)}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  th,td{padding:7px 10px;border-bottom:1px solid var(--line);font-size:12.5px;text-align:left;vertical-align:top}
+  th{background:#efede8;font-weight:600;white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  .tag{background:#e8eef5;color:var(--accent);border-radius:4px;padding:1px 6px;font-size:11px}
+  .tag.del{background:#f7e6e2;color:#c2543f}
+  .tag.up{background:#e6efe6;color:#4a7c59}
+  .hint{color:var(--sub);font-size:12px;margin:6px 0}
+  #keyBox{background:#fdf3e0;border:1px solid #ecd9b0;border-radius:8px;padding:12px;margin:14px 0;display:none}
+  .empty{color:var(--sub);padding:30px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>导出统计</h1>
+  <label style="font-size:12px;color:var(--sub)"><input type="checkbox" id="autoRef" style="width:auto"> 自动刷新(15s)</label>
+  <button id="refreshBtn">刷新</button>
+  <a id="csvLink" href="/api/logs/csv"><button>导出 CSV</button></a>
+  <span id="upd" style="color:var(--sub);font-size:12px"></span>
+</header>
+<main>
+  <div id="keyBox">
+    服务端已开启管理钥匙。输入 INVITE_ADMIN_KEY 对应的钥匙：
+    <div style="margin-top:8px;display:flex;gap:8px">
+      <input id="keyInput" type="password" style="flex:1;max-width:320px;border:1px solid var(--line);border-radius:6px;padding:6px 10px">
+      <button id="keyGo">解锁</button>
+    </div>
+  </div>
+  <div class="cards" id="cards"></div>
+  <div class="filters">
+    <select id="fTpl"><option value="">全部模板</option></select>
+    <select id="fVisitor"><option value="">全部访客</option></select>
+    <select id="fEvent"><option value="">全部类型</option><option value="export">导出</option><option value="upload">上传</option><option value="delete">删除</option><option value="fonts">字体</option></select>
+    <input id="fKw" placeholder="搜名字/文件名…">
+  </div>
+  <div class="hint" id="cnt"></div>
+  <table>
+    <thead><tr><th>时间</th><th>类型</th><th>访客</th><th>IP</th><th>模板</th><th>内容</th><th>张数</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div class="empty" id="empty" style="display:none">还没有任何记录</div>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+function getKey() { return sessionStorage.getItem("invite-admin-key") || localStorage.getItem("web-invite-admin-key") || ""; }
+
+async function load() {
+  const r = await fetch("/api/logs?limit=3000", { headers: { "X-Admin-Key": getKey() } });
+  if (r.status === 401) { $("keyBox").style.display = "block"; return; }
+  if (!r.ok) { $("upd").textContent = "加载失败 " + r.status; return; }
+  $("keyBox").style.display = "none";
+  const data = await r.json();
+  render(data);
+  $("upd").textContent = "更新于 " + new Date().toLocaleTimeString();
+}
+
+function render(data) {
+  const s = data.summary;
+  $("cards").innerHTML =
+    card(s.total_pngs, "累计导出张数") + card(s.total_events, "导出次数") +
+    card(s.today_pngs, "今日张数") + card(s.visitors, "访客数(浏览器)") +
+    card(data.total_rows, "日志总条数");
+  const rows = data.rows.slice().reverse(); // 新的在前
+  // 过滤选项
+  fillSelect("fTpl", s.templates || []);
+  fillSelect("fVisitor", [...new Set(data.rows.map(r => r.visitor).filter(Boolean))]);
+  window._rows = rows;
+  applyFilter();
+}
+
+function card(num, label) { return '<div class="card"><b>' + num + "</b><span>" + label + "</span></div>"; }
+
+function fillSelect(id, values) {
+  const sel = $(id);
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">全部' + (id === "fTpl" ? "模板" : id === "fVisitor" ? "访客" : "") + "</option>" +
+    values.map(v => '<option value="' + String(v).replace(/"/g, "&quot;") + '">' + String(v).slice(0, 18) + "</option>").join("");
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+
+function applyFilter() {
+  const tpl = $("fTpl").value, vis = $("fVisitor").value, ev = $("fEvent").value, kw = $("fKw").value.trim().toLowerCase();
+  const rows = (window._rows || []).filter(r => {
+    if (tpl && r.template !== tpl) return false;
+    if (vis && r.visitor !== vis) return false;
+    if (ev && r.event !== ev) return false;
+    if (kw) {
+      const blob = JSON.stringify([r.template, r.files, r.visitor, r.ip]).toLowerCase();
+      if (!blob.includes(kw)) return false;
+    }
+    return true;
+  });
+  $("cnt").textContent = "显示 " + rows.length + " / " + (window._rows || []).length + " 条";
+  $("empty").style.display = rows.length ? "none" : "block";
+  const tag = (e) => e === "export" ? '<span class="tag">导出</span>'
+    : e === "upload" ? '<span class="tag up">上传</span>'
+    : e === "delete" ? '<span class="tag del">删除</span>'
+    : e === "fonts" ? '<span class="tag up">字体</span>' : e;
+  $("rows").innerHTML = rows.map(r => {
+    let content = "";
+    if (r.event === "upload") content = "上传模板「" + esc(r.template || "") + "」（" + (r.layers ?? "?") + " 个文字图层）";
+    else if (r.event === "delete") content = "删除「" + esc(r.template || "") + "」";
+    else if (r.event === "fonts") content = "字体：" + (r.files || []).join("、");
+    else content = ((r.files || []).map(esc).join("<br>")) || "";
+    const v = r.visitor ? String(r.visitor).slice(0, 8) : "—";
+    return "<tr><td>" + esc(r.time || "") + "</td><td>" + tag(r.event) + "</td><td title='" + esc(r.visitor || "") + "'>" + v +
+      "</td><td>" + esc(r.ip || "") + "</td><td>" + esc(r.template || "") + "</td><td>" + content +
+      "</td><td>" + (r.event === "export" ? (r.count ?? "") : "") + "</td></tr>";
+  }).join("");
+}
+
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+$("keyGo").addEventListener("click", () => {
+  sessionStorage.setItem("invite-admin-key", $("keyInput").value.trim());
+  load();
+});
+$("keyInput").addEventListener("keydown", e => { if (e.key === "Enter") $("keyGo").click(); });
+$("refreshBtn").addEventListener("click", load);
+$("fTpl").addEventListener("change", applyFilter);
+$("fVisitor").addEventListener("change", applyFilter);
+$("fEvent").addEventListener("change", applyFilter);
+$("fKw").addEventListener("input", applyFilter);
+setInterval(() => { if ($("autoRef").checked) load(); }, 15000);
+load();
+</script>
+</body>
+</html>
